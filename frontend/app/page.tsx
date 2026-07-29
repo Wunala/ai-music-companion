@@ -158,20 +158,60 @@ export default function Home() {
   const [showImport, setShowImport] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisMessage, setAnalysisMessage] = useState("");
+  const [playlistTitle, setPlaylistTitle] = useState("");
+  const [playlistSummary, setPlaylistSummary] = useState("");
+  const [generationSource, setGenerationSource] = useState<"ai" | "local" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const visibleResults = useMemo(() => results.filter((song) => !excluded.has(song.id)), [results, excluded]);
   const totalMinutes = Math.round(visibleResults.reduce((sum, song) => sum + song.duration, 0) / 60);
 
-  function generate() {
+  async function generate() {
     if (!query.trim()) return;
     setLoading(true);
     setSaved(false);
-    window.setTimeout(() => {
-      setResults(analyze(query, librarySongs));
+    try {
+      const response = await fetch("/api/generate-playlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query,
+          songs: librarySongs.map(
+            ({ id, title, artist, album, genre, year, energy, tags, language, aiSummary, lastPlayed }) => ({
+              id, title, artist, album, genre, year, energy, tags, language, aiSummary, lastPlayed,
+            }),
+          ),
+        }),
+      });
+      const data = (await response.json()) as {
+        title?: string;
+        summary?: string;
+        selections?: Array<{ id: string; reason: string; score: number }>;
+        error?: string;
+      };
+      if (!response.ok || !data.selections) throw new Error(data.error ?? "AI 生成失败");
+      const songsById = new Map(librarySongs.map((song) => [song.id, song]));
+      const selected = data.selections
+        .map((selection) => {
+          const song = songsById.get(selection.id);
+          return song ? { ...song, reason: selection.reason, score: selection.score } : null;
+        })
+        .filter((song): song is Result => song !== null);
+      setResults(selected);
+      setPlaylistTitle(data.title ?? "为你找到的歌");
+      setPlaylistSummary(data.summary ?? "");
+      setGenerationSource("ai");
       setExcluded(new Set());
+    } catch {
+      const fallback = analyze(query, librarySongs);
+      setResults(fallback);
+      setPlaylistTitle("为你找到的歌");
+      setPlaylistSummary("AI 暂时不可用，当前显示本地规则筛选结果。");
+      setGenerationSource("local");
+      setExcluded(new Set());
+    } finally {
       setLoading(false);
-    }, 650);
+    }
   }
 
   async function importLibrary(event: ChangeEvent<HTMLInputElement>) {
@@ -348,7 +388,17 @@ export default function Home() {
         {results.length > 0 && !loading && (
           <section className="mt-14">
             <div className="flex flex-wrap items-end justify-between gap-5">
-              <div><p className="text-xs uppercase tracking-[0.17em] text-[#967047]">A playlist from your library</p><h2 className="mt-2 font-serif text-3xl">为“{query}”找到的歌</h2><p className="mt-2 text-sm text-[#817b73]">{visibleResults.length} 首 · 约 {totalMinutes} 分钟 · 所有歌曲均来自你的资料库</p></div>
+              <div>
+                <p className="flex items-center gap-2 text-xs uppercase tracking-[0.17em] text-[#967047]">
+                  A playlist from your library
+                  <span className={`rounded-full px-2 py-1 text-[10px] normal-case tracking-normal ${generationSource === "ai" ? "bg-[#e7f0e7] text-[#4d704f]" : "bg-[#f3e8dd] text-[#8a633c]"}`}>
+                    {generationSource === "ai" ? "DeepSeek AI" : "本地降级"}
+                  </span>
+                </p>
+                <h2 className="mt-2 font-serif text-3xl">{playlistTitle || `为“${query}”找到的歌`}</h2>
+                {playlistSummary && <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f6961]">{playlistSummary}</p>}
+                <p className="mt-2 text-sm text-[#817b73]">{visibleResults.length} 首 · 约 {totalMinutes} 分钟 · 所有歌曲均来自你的资料库</p>
+              </div>
               <div className="flex gap-2">
                 <button onClick={exportPlaylist} className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm"><Download className="h-4 w-4" />导出 CSV</button>
                 <button onClick={() => setSaved(true)} className="flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-sm text-white">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存" : "保存歌单"}</button>
@@ -359,7 +409,7 @@ export default function Home() {
                 <article key={song.id} className="group grid grid-cols-[42px_1fr_auto] items-center gap-4 border-b border-black/[0.06] p-4 last:border-0 md:grid-cols-[42px_1fr_1.2fr_auto] md:px-6">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0ece4] text-xs text-[#8d857a] group-hover:bg-[#24221f] group-hover:text-white">{index + 1}</div>
                   <div><h3 className="font-medium">{song.title}</h3><p className="mt-1 text-sm text-[#8b857c]">{song.artist} · {song.album}</p></div>
-                  <div className="hidden md:block"><p className="text-sm text-[#625e57]">{song.aiSummary || song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f4f1eb] px-2 py-1 text-[10px] text-[#827a70]">{tag}</span>)}</div></div>
+                  <div className="hidden md:block"><p className="text-sm text-[#625e57]">{song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f4f1eb] px-2 py-1 text-[10px] text-[#827a70]">{tag}</span>)}</div></div>
                   <button onClick={() => setExcluded((current) => new Set([...current, song.id]))} className="rounded-full p-2 text-[#aaa49b] hover:bg-[#f3efe8] hover:text-[#3c3833]" aria-label={`移除 ${song.title}`}><X className="h-4 w-4" /></button>
                 </article>
               ))}
