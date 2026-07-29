@@ -156,6 +156,11 @@ export default function Home() {
   const [playlistTitle, setPlaylistTitle] = useState("");
   const [playlistSummary, setPlaylistSummary] = useState("");
   const [generationSource, setGenerationSource] = useState<"ai" | "local" | null>(null);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [generationError, setGenerationError] = useState("");
+  const [externalSuggestions, setExternalSuggestions] = useState<
+    Array<{ title: string; artist: string; reason: string }>
+  >([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const visibleResults = useMemo(() => results.filter((song) => !excluded.has(song.id)), [results, excluded]);
@@ -165,6 +170,8 @@ export default function Home() {
     if (!query.trim()) return;
     setLoading(true);
     setSaved(false);
+    setGenerationError("");
+    setExternalSuggestions([]);
     try {
       const response = await fetch("/api/generate-playlist", {
         method: "POST",
@@ -182,6 +189,7 @@ export default function Home() {
         title?: string;
         summary?: string;
         selections?: Array<{ id: string; reason: string; score: number }>;
+        external_suggestions?: Array<{ title: string; artist: string; reason: string }>;
         error?: string;
       };
       if (!response.ok || !data.selections) throw new Error(data.error ?? "AI 生成失败");
@@ -196,15 +204,17 @@ export default function Home() {
       setPlaylistTitle(data.title ?? "为你找到的歌");
       setPlaylistSummary(data.summary ?? "");
       setGenerationSource("ai");
+      setExternalSuggestions(data.external_suggestions ?? []);
       setExcluded(new Set());
-    } catch {
-      const fallback = analyze(query, librarySongs);
-      setResults(fallback);
-      setPlaylistTitle("为你找到的歌");
-      setPlaylistSummary("AI 暂时不可用，当前显示本地规则筛选结果。");
-      setGenerationSource("local");
+    } catch (error) {
+      setResults([]);
+      setPlaylistTitle("暂时无法完成筛选");
+      setPlaylistSummary("");
+      setGenerationError(error instanceof Error ? error.message : "AI 服务暂时不可用");
+      setGenerationSource(null);
       setExcluded(new Set());
     } finally {
+      setHasGenerated(true);
       setLoading(false);
     }
   }
@@ -402,14 +412,14 @@ export default function Home() {
           </div>
         )}
 
-        {results.length > 0 && !loading && (
+        {hasGenerated && !loading && (
           <section className="mt-14">
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div>
                 <p className="flex items-center gap-2 text-xs uppercase tracking-[0.17em] text-[#967047]">
                   A playlist from your library
                   <span className={`rounded-full px-2 py-1 text-[10px] normal-case tracking-normal ${generationSource === "ai" ? "bg-[#e7f0e7] text-[#4d704f]" : "bg-[#f3e8dd] text-[#8a633c]"}`}>
-                    {generationSource === "ai" ? "DeepSeek AI" : "本地降级"}
+                    {generationSource === "ai" ? "DeepSeek AI" : "未生成"}
                   </span>
                 </p>
                 <h2 className="mt-2 font-serif text-3xl">{playlistTitle || `为“${query}”找到的歌`}</h2>
@@ -421,7 +431,19 @@ export default function Home() {
                 <button onClick={savePlaylist} className="flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-sm text-white">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存到此设备" : "保存歌单"}</button>
               </div>
             </div>
-            <div className="mt-7 overflow-hidden rounded-3xl border border-black/[0.08] bg-white">
+            {generationError && (
+              <div className="mt-7 rounded-3xl border border-[#c98b76]/30 bg-[#fbf1ed] p-8 text-center">
+                <p className="font-medium text-[#7f4937]">{generationError}</p>
+                <p className="mt-2 text-sm text-[#946b5d]">没有使用本地规则替代，请稍后重试。</p>
+              </div>
+            )}
+            {!generationError && visibleResults.length === 0 && (
+              <div className="mt-7 rounded-3xl border border-black/[0.08] bg-white p-8 text-center">
+                <p className="font-serif text-2xl">你的资料库里没有符合条件的歌曲</p>
+                <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[#817b73]">{playlistSummary || "可以换一个条件，或看看资料库外的推荐。"}</p>
+              </div>
+            )}
+            {visibleResults.length > 0 && <div className="mt-7 overflow-hidden rounded-3xl border border-black/[0.08] bg-white">
               {visibleResults.map((song, index) => (
                 <article key={song.id} className="group grid grid-cols-[42px_1fr_auto] items-center gap-4 border-b border-black/[0.06] p-4 last:border-0 md:grid-cols-[42px_1fr_1.2fr_auto] md:px-6">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0ece4] text-xs text-[#8d857a] group-hover:bg-[#24221f] group-hover:text-white">{index + 1}</div>
@@ -443,8 +465,35 @@ export default function Home() {
                   </div>
                 </article>
               ))}
-              {visibleResults.length === 0 && <div className="p-12 text-center text-sm text-[#8b857c]">你移除了全部结果。换一种描述再试试。</div>}
-            </div>
+            </div>}
+            {externalSuggestions.length > 0 && (
+              <div className="mt-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">资料库外推荐</h3>
+                    <p className="mt-1 text-xs text-[#8b857c]">这些歌曲不在你的资料库中，将在 Apple Music 中打开。</p>
+                  </div>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {externalSuggestions.map((song) => (
+                    <article key={`${song.artist}-${song.title}`} className="rounded-2xl border border-black/[0.08] bg-white p-5">
+                      <p className="text-xs uppercase tracking-[0.15em] text-[#967047]">Outside your library</p>
+                      <h4 className="mt-3 font-medium">{song.title}</h4>
+                      <p className="mt-1 text-sm text-[#817b73]">{song.artist}</p>
+                      <p className="mt-4 text-sm leading-6 text-[#625e57]">{song.reason}</p>
+                      <a
+                        href={`https://music.apple.com/search?term=${encodeURIComponent(`${song.title} ${song.artist}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-5 flex w-fit items-center gap-2 rounded-full bg-[#f2eee7] px-4 py-2 text-xs font-medium"
+                      >
+                        <Music2 className="h-3.5 w-3.5" />在 Apple Music 中查找<ExternalLink className="h-3 w-3" />
+                      </a>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
             <p className="mt-4 text-center text-xs text-[#948e85]">你移除和保留的歌曲，会逐渐帮助系统理解“你的力量感”和“你的放松”具体是什么。</p>
           </section>
         )}

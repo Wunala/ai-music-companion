@@ -23,17 +23,26 @@ type Selection = {
   score: number;
 };
 
+type ExternalSuggestion = {
+  title: string;
+  artist: string;
+  reason: string;
+};
+
 const SYSTEM_PROMPT = `你是个人音乐资料库的歌单策划师。用户会给出一个听歌需求和一份属于他自己的歌曲资料库。
 
 你的任务：
 1. 只能从提供的资料库中选择歌曲，绝不能添加不存在的歌。
 2. 理解自然语言中的场景、情绪、语言、年代、能量、排除条件和时长要求。
-3. 严格遵守用户要求的歌曲数量。如果请求中提供了 target_count，必须恰好选择该数量；未提供时选择最合适的 6 到 12 首。
+3. 艺人、语言、年代、数量和明确的排除词属于硬条件，不能用不符合的歌曲凑数。
+4. 严格遵守用户要求的歌曲数量。如果符合条件的歌曲少于 target_count，就只返回实际符合的数量；绝不能为了凑数放宽条件。未提供数量时选择最多 10 首。
 4. 每首歌给出针对本次需求的具体中文理由，不能复用泛化描述。
 5. score 为 0 到 100 的整数，不同歌曲应有合理差异。
+6. 如果资料库没有任何符合硬条件的歌曲，selections 必须是空数组，match_status 为 "no_match"。同时可以在 external_suggestions 中推荐最多 3 首真实存在、但不在资料库中的歌曲。
+7. external_suggestions 只能在 selections 为空时返回；这些歌曲必须明确属于用户指定的艺人或条件。
 
 只输出 JSON：
-{"title":"歌单名称","summary":"如何理解这次需求","selections":[{"id":"资料库原始ID","reason":"针对需求的推荐原因","score":88}]}`;
+{"title":"歌单名称","summary":"如何理解这次需求或为什么没有匹配","match_status":"matched或no_match","selections":[{"id":"资料库原始ID","reason":"针对需求的推荐原因","score":88}],"external_suggestions":[{"title":"资料库外歌曲名","artist":"艺人","reason":"为什么可以作为资料库外选择"}]}`;
 
 function validSelection(value: unknown): value is Selection {
   if (!value || typeof value !== "object") return false;
@@ -44,6 +53,16 @@ function validSelection(value: unknown): value is Selection {
     typeof item.score === "number" &&
     item.score >= 0 &&
     item.score <= 100
+  );
+}
+
+function validExternalSuggestion(value: unknown): value is ExternalSuggestion {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.title === "string" &&
+    typeof item.artist === "string" &&
+    typeof item.reason === "string"
   );
 }
 
@@ -144,17 +163,25 @@ export async function POST(request: NextRequest) {
       title?: unknown;
       summary?: unknown;
       selections?: unknown[];
+      external_suggestions?: unknown[];
     };
     const validIds = new Set(songs.map((song) => song.id));
     let selections = (parsed.selections ?? [])
       .filter(validSelection)
       .filter((selection) => validIds.has(selection.id));
     if (targetCount !== null) selections = selections.slice(0, targetCount);
-    if (selections.length === 0) throw new Error("No valid selections");
+    const externalSuggestions =
+      selections.length === 0
+        ? (parsed.external_suggestions ?? [])
+            .filter(validExternalSuggestion)
+            .slice(0, 3)
+        : [];
     return NextResponse.json({
       title: typeof parsed.title === "string" ? parsed.title : "为你找到的歌",
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
       selections,
+      match_status: selections.length > 0 ? "matched" : "no_match",
+      external_suggestions: externalSuggestions,
     });
   } catch {
     return NextResponse.json({ error: "AI 返回的歌单格式无效" }, { status: 502 });
