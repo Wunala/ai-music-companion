@@ -446,6 +446,23 @@ export default function Home() {
     setSaved(true);
   }
 
+  function createAppleMusicPlaylist() {
+    if (visibleResults.length === 0) return;
+    const payload = {
+      playlist_title: playlistTitle || `Music Companion · ${query.slice(0, 30)}`,
+      songs: visibleResults.map(({ title, artist, album }) => ({
+        title,
+        artist,
+        album,
+      })),
+    };
+    const shortcutName = "Music Companion Create Playlist";
+    const shortcutUrl =
+      `shortcuts://run-shortcut?name=${encodeURIComponent(shortcutName)}` +
+      `&input=text&text=${encodeURIComponent(JSON.stringify(payload))}`;
+    window.location.href = shortcutUrl;
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f3ee] text-[#1c1b19]">
       <nav className="border-b border-black/[0.07] bg-[#f5f3ee]/90 backdrop-blur">
@@ -529,9 +546,17 @@ export default function Home() {
                 {playlistSummary && <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f6961]">{playlistSummary}</p>}
                 <p className="mt-2 text-sm text-[#817b73]">{visibleResults.length} 首 · 约 {totalMinutes} 分钟 · 所有歌曲均来自你的资料库</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button onClick={exportPlaylist} className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm"><Download className="h-4 w-4" />导出 CSV</button>
                 <button onClick={savePlaylist} className="flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-sm text-white">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存到此设备" : "保存歌单"}</button>
+                <button
+                  onClick={createAppleMusicPlaylist}
+                  disabled={visibleResults.length === 0}
+                  className="flex items-center gap-2 rounded-full bg-[#e85d68] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#d94f5b] disabled:opacity-40"
+                >
+                  <Music2 className="h-4 w-4" />
+                  创建到 Apple Music
+                </button>
               </div>
             </div>
             {generationError && (
