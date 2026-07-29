@@ -1,11 +1,12 @@
 "use client";
 
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
   ChevronDown,
   Clock3,
+  Copy,
   Disc3,
   Download,
   ExternalLink,
@@ -17,6 +18,7 @@ import {
   Music2,
   Plus,
   Search,
+  Smartphone,
   SlidersHorizontal,
   Sparkles,
   Upload,
@@ -36,6 +38,7 @@ type Song = {
   lastPlayed?: string;
   language?: string;
   aiSummary?: string;
+  playCount?: number;
 };
 
 type Result = Song & { reason: string; score: number };
@@ -161,10 +164,110 @@ export default function Home() {
   const [externalSuggestions, setExternalSuggestions] = useState<
     Array<{ title: string; artist: string; reason: string }>
   >([]);
+  const [pairingCode, setPairingCode] = useState("");
+  const [pairingToken, setPairingToken] = useState("");
+  const [syncStatus, setSyncStatus] = useState("");
+  const [creatingPair, setCreatingPair] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const visibleResults = useMemo(() => results.filter((song) => !excluded.has(song.id)), [results, excluded]);
   const totalMinutes = Math.round(visibleResults.reduce((sum, song) => sum + song.duration, 0) / 60);
+
+  useEffect(() => {
+    const savedToken = window.localStorage.getItem("music-companion-library-token");
+    if (!savedToken) return;
+
+    fetch(`/api/library/pair?token=${encodeURIComponent(savedToken)}`, {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as {
+          status?: string;
+          songs?: Song[];
+          songCount?: number;
+          syncedAt?: string;
+        };
+      })
+      .then((data) => {
+        if (data?.status === "complete" && data.songs?.length) {
+          setLibrarySongs(data.songs);
+          setLibraryName(`我的 Apple Music 资料库`);
+          setSyncStatus(
+            `已载入 ${data.songCount ?? data.songs.length} 首 · ${new Date(
+              data.syncedAt ?? Date.now(),
+            ).toLocaleString("zh-CN")}`,
+          );
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!pairingToken || !showImport) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(
+          `/api/library/pair?token=${encodeURIComponent(pairingToken)}`,
+          { cache: "no-store" },
+        );
+        const data = (await response.json()) as {
+          status?: string;
+          songs?: Song[];
+          songCount?: number;
+          syncedAt?: string;
+          error?: string;
+        };
+        if (data.status === "complete" && data.songs?.length) {
+          setLibrarySongs(data.songs);
+          setLibraryName("我的 Apple Music 资料库");
+          setResults([]);
+          setSyncStatus(
+            `同步成功：${data.songCount ?? data.songs.length} 首歌曲`,
+          );
+          window.localStorage.setItem(
+            "music-companion-library-token",
+            pairingToken,
+          );
+          window.clearInterval(timer);
+        } else if (data.status === "expired") {
+          setSyncStatus(data.error ?? "配对码已过期");
+          window.clearInterval(timer);
+        }
+      } catch {
+        setSyncStatus("正在等待快捷指令上传…");
+      }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [pairingToken, showImport]);
+
+  async function createPairingCode() {
+    setCreatingPair(true);
+    setSyncStatus("");
+    try {
+      const response = await fetch("/api/library/pair", { method: "POST" });
+      const data = (await response.json()) as {
+        code?: string;
+        sessionToken?: string;
+        persistent?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !data.code || !data.sessionToken) {
+        throw new Error(data.error ?? "无法生成配对码");
+      }
+      setPairingCode(data.code);
+      setPairingToken(data.sessionToken);
+      setSyncStatus(
+        data.persistent
+          ? "等待快捷指令上传，配对码十分钟内有效"
+          : "本地测试模式：请保持当前开发服务器运行",
+      );
+    } catch (error) {
+      setSyncStatus(error instanceof Error ? error.message : "无法生成配对码");
+    } finally {
+      setCreatingPair(false);
+    }
+  }
 
   async function generate() {
     if (!query.trim()) return;
@@ -503,9 +606,71 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1d1b18]/60 p-5 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-3xl bg-[#fcfbf8] p-7 shadow-2xl">
             <div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-[#967047]">Your music library</p><h2 className="mt-2 font-serif text-3xl">连接你的资料库</h2></div><button onClick={() => setShowImport(false)} className="p-2"><X className="h-5 w-5" /></button></div>
-            <p className="mt-4 text-sm leading-6 text-[#746f67]">在 Mac 的“音乐”App 中选择“文件 → 资料库 → 导出资料库”，然后上传 XML；也支持常见 CSV 歌曲列表。文件只在当前浏览器中处理。</p>
+            <p className="mt-4 text-sm leading-6 text-[#746f67]">
+              推荐使用 iPhone 快捷指令读取 Apple Music 资料库。网页会生成一次性配对码，快捷指令上传完成后，此页面会自动载入歌曲。
+            </p>
+            <div className="mt-6 rounded-2xl border border-[#967047]/25 bg-[#f4eee5] p-5">
+              <div className="flex items-start gap-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white">
+                  <Smartphone className="h-5 w-5 text-[#967047]" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <strong className="block text-sm">通过快捷指令同步</strong>
+                  {!pairingCode ? (
+                    <>
+                      <p className="mt-1 text-xs leading-5 text-[#7f776c]">
+                        先生成配对码，再运行 Music Companion · Sync Library。
+                      </p>
+                      <button
+                        onClick={createPairingCode}
+                        disabled={creatingPair}
+                        className="mt-4 flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {creatingPair && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                        {creatingPair ? "正在生成…" : "生成配对码"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mt-1 text-xs text-[#7f776c]">
+                        在快捷指令询问时输入：
+                      </p>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(pairingCode)}
+                        className="mt-3 flex items-center gap-3 rounded-xl bg-white px-4 py-3"
+                        aria-label="复制配对码"
+                      >
+                        <span className="font-mono text-2xl font-semibold tracking-[0.25em]">
+                          {pairingCode}
+                        </span>
+                        <Copy className="h-4 w-4 text-[#8c867d]" />
+                      </button>
+                      <button
+                        onClick={createPairingCode}
+                        className="mt-3 text-xs text-[#806142] underline underline-offset-4"
+                      >
+                        重新生成
+                      </button>
+                    </>
+                  )}
+                  {syncStatus && (
+                    <p className="mt-3 flex items-center gap-2 text-xs leading-5 text-[#6f685f]">
+                      {pairingCode && !syncStatus.startsWith("同步成功") && (
+                        <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                      )}
+                      {syncStatus}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-[#aaa39a]">
+              <span className="h-px flex-1 bg-black/[0.08]" />
+              或使用文件
+              <span className="h-px flex-1 bg-black/[0.08]" />
+            </div>
             <input ref={fileInput} onChange={importLibrary} type="file" accept=".xml,.csv,text/csv,application/xml" className="hidden" />
-            <button onClick={() => fileInput.current?.click()} className="mt-6 flex w-full items-center justify-between rounded-2xl border border-dashed border-black/20 bg-[#f5f2ec] p-5 text-left hover:border-[#967047]">
+            <button onClick={() => fileInput.current?.click()} className="flex w-full items-center justify-between rounded-2xl border border-dashed border-black/20 bg-[#f5f2ec] p-5 text-left hover:border-[#967047]">
               <span className="flex items-center gap-4"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white"><Upload className="h-5 w-5" /></span><span><strong className="block text-sm">上传 Apple Music 资料库</strong><span className="mt-1 block text-xs text-[#8c867d]">XML 或 CSV</span></span></span><ArrowRight className="h-4 w-4" />
             </button>
             <button onClick={() => { setLibrarySongs(demoLibrary); setLibraryName("Yang 的示例资料库"); setShowImport(false); }} className="mt-3 flex w-full items-center gap-4 rounded-2xl border border-black/[0.07] p-5 text-left hover:bg-[#f5f2ec]">
