@@ -28,7 +28,7 @@ const SYSTEM_PROMPT = `你是个人音乐资料库的歌单策划师。用户会
 你的任务：
 1. 只能从提供的资料库中选择歌曲，绝不能添加不存在的歌。
 2. 理解自然语言中的场景、情绪、语言、年代、能量、排除条件和时长要求。
-3. 选择最合适的 6 到 12 首，并按适合程度排序。
+3. 严格遵守用户要求的歌曲数量。如果请求中提供了 target_count，必须恰好选择该数量；未提供时选择最合适的 6 到 12 首。
 4. 每首歌给出针对本次需求的具体中文理由，不能复用泛化描述。
 5. score 为 0 到 100 的整数，不同歌曲应有合理差异。
 
@@ -45,6 +45,35 @@ function validSelection(value: unknown): value is Selection {
     item.score >= 0 &&
     item.score <= 100
   );
+}
+
+function extractRequestedCount(query: string): number | null {
+  const arabicMatch = query.match(/(\d{1,2})\s*首/);
+  if (arabicMatch) return Math.min(30, Math.max(1, Number(arabicMatch[1])));
+
+  const chineseNumbers: Record<string, number> = {
+    一: 1,
+    两: 2,
+    二: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+    十: 10,
+    十一: 11,
+    十二: 12,
+    十三: 13,
+    十四: 14,
+    十五: 15,
+    二十: 20,
+  };
+  const chineseMatch = query.match(
+    /(二十|十五|十四|十三|十二|十一|十|一|两|二|三|四|五|六|七|八|九)\s*首/,
+  );
+  return chineseMatch ? chineseNumbers[chineseMatch[1]] : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -65,6 +94,7 @@ export async function POST(request: NextRequest) {
   if (!query || songs.length === 0) {
     return NextResponse.json({ error: "缺少听歌需求或资料库" }, { status: 400 });
   }
+  const targetCount = extractRequestedCount(query);
 
   const response = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
@@ -82,7 +112,11 @@ export async function POST(request: NextRequest) {
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: JSON.stringify({ request: query, library: songs }),
+          content: JSON.stringify({
+            request: query,
+            target_count: targetCount,
+            library: songs,
+          }),
         },
       ],
     }),
@@ -112,9 +146,10 @@ export async function POST(request: NextRequest) {
       selections?: unknown[];
     };
     const validIds = new Set(songs.map((song) => song.id));
-    const selections = (parsed.selections ?? [])
+    let selections = (parsed.selections ?? [])
       .filter(validSelection)
       .filter((selection) => validIds.has(selection.id));
+    if (targetCount !== null) selections = selections.slice(0, targetCount);
     if (selections.length === 0) throw new Error("No valid selections");
     return NextResponse.json({
       title: typeof parsed.title === "string" ? parsed.title : "为你找到的歌",
