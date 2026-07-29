@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const LIBRARY_TTL_SECONDS = 90 * 24 * 60 * 60;
-const MAX_SONGS_PER_TEST_SYNC = 500;
+const MAX_LIBRARY_SONGS = 10000;
 
 type PairRecord = {
   sessionToken: string;
@@ -64,9 +64,9 @@ export async function POST(request: NextRequest) {
   if (!Array.isArray(body.songs) || body.songs.length === 0) {
     return NextResponse.json({ error: "没有收到歌曲数据" }, { status: 400 });
   }
-  if (body.songs.length > MAX_SONGS_PER_TEST_SYNC) {
+  if (body.songs.length > MAX_LIBRARY_SONGS) {
     return NextResponse.json(
-      { error: `测试版每次最多同步 ${MAX_SONGS_PER_TEST_SYNC} 首歌曲` },
+      { error: `一次最多同步 ${MAX_LIBRARY_SONGS} 首歌曲` },
       { status: 413 },
     );
   }

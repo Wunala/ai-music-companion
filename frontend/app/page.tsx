@@ -62,6 +62,13 @@ const demoLibrary: Song[] = [
   { id: "16", title: "NAPPA", artist: "Crush", album: "NAPPA", genre: "K-R&B", year: 2019, duration: 181, tags: ["轻松", "夏天", "律动", "韩语"], energy: 61, lastPlayed: "2021-07" },
 ];
 
+const syncShortcutUrl =
+  process.env.NEXT_PUBLIC_SYNC_SHORTCUT_URL ??
+  "https://www.icloud.com/shortcuts/e355efaa5f7147409fc511d54f20e8f2";
+const queueShortcutUrl =
+  process.env.NEXT_PUBLIC_QUEUE_SHORTCUT_URL ??
+  "https://www.icloud.com/shortcuts/ff3fd03e1f0f4ecc8e0290bd801bb836";
+
 function analyze(query: string, songs: Song[]): Result[] {
   const q = query.toLowerCase();
   const quiet = /不要太吵|安静|放松|睡前|温柔|轻柔/.test(q);
@@ -555,7 +562,7 @@ export default function Home() {
                   className="flex items-center gap-2 rounded-full bg-[#e85d68] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#d94f5b] disabled:opacity-40"
                 >
                   <Music2 className="h-4 w-4" />
-                  创建到 Apple Music
+                  加入 Apple Music 队列
                 </button>
               </div>
             </div>
@@ -641,6 +648,36 @@ export default function Home() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <strong className="block text-sm">通过快捷指令同步</strong>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {syncShortcutUrl ? (
+                      <a
+                        href={syncShortcutUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-[#967047]/30 bg-white px-3 py-2 text-xs font-medium text-[#715535]"
+                      >
+                        安装资料库同步快捷指令
+                      </a>
+                    ) : (
+                      <span className="rounded-full border border-black/10 px-3 py-2 text-xs text-[#999187]">
+                        同步快捷指令链接待添加
+                      </span>
+                    )}
+                    {queueShortcutUrl ? (
+                      <a
+                        href={queueShortcutUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-[#e85d68]/30 bg-white px-3 py-2 text-xs font-medium text-[#a33d47]"
+                      >
+                        安装播放队列快捷指令
+                      </a>
+                    ) : (
+                      <span className="rounded-full border border-black/10 px-3 py-2 text-xs text-[#999187]">
+                        队列快捷指令链接待添加
+                      </span>
+                    )}
+                  </div>
                   {!pairingCode ? (
                     <>
                       <p className="mt-1 text-xs leading-5 text-[#7f776c]">
