@@ -1,0 +1,303 @@
+"use client";
+
+import { ChangeEvent, useMemo, useRef, useState } from "react";
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Clock3,
+  Disc3,
+  Download,
+  FileMusic,
+  Headphones,
+  Library,
+  ListMusic,
+  LoaderCircle,
+  Music2,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
+
+type Song = {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  genre: string;
+  year: number;
+  duration: number;
+  tags: string[];
+  energy: number;
+  lastPlayed?: string;
+};
+
+type Result = Song & { reason: string; score: number };
+
+const demoLibrary: Song[] = [
+  { id: "1", title: "Happy Ending", artist: "Epik High", album: "SHOEBOX", genre: "K-Hip-Hop", year: 2014, duration: 238, tags: ["释然", "叙事", "夜晚", "情绪递进", "韩语"], energy: 48, lastPlayed: "2025-02" },
+  { id: "2", title: "Left Right", artist: "XG", album: "SHOOTING STAR", genre: "R&B", year: 2023, duration: 208, tags: ["轻盈", "自信", "通勤", "律动", "女声"], energy: 64, lastPlayed: "2026-06" },
+  { id: "3", title: "Everythinggoes", artist: "RM, NELL", album: "mono.", genre: "Alternative", year: 2018, duration: 217, tags: ["治愈", "流动", "雨天", "夜晚", "韩语"], energy: 38, lastPlayed: "2024-11" },
+  { id: "4", title: "Holo", artist: "LeeHi", album: "HOLO", genre: "K-R&B", year: 2020, duration: 178, tags: ["温柔", "独处", "治愈", "女声", "韩语"], energy: 31, lastPlayed: "2026-01" },
+  { id: "5", title: "Through the Night", artist: "IU", album: "Palette", genre: "K-Pop", year: 2017, duration: 253, tags: ["安静", "夜晚", "睡前", "温柔", "韩语"], energy: 22, lastPlayed: "2025-08" },
+  { id: "6", title: "Instagram", artist: "DEAN", album: "instagram", genre: "K-R&B", year: 2017, duration: 256, tags: ["深夜", "克制", "独处", "氛围", "韩语"], energy: 35, lastPlayed: "2023-12" },
+  { id: "7", title: "New Jeans", artist: "NewJeans", album: "Get Up", genre: "K-Pop", year: 2023, duration: 108, tags: ["清爽", "轻快", "通勤", "女声", "韩语"], energy: 66, lastPlayed: "2026-07" },
+  { id: "8", title: "Ditto", artist: "NewJeans", album: "OMG", genre: "K-Pop", year: 2022, duration: 185, tags: ["怀旧", "冬天", "氛围", "女声", "韩语"], energy: 47, lastPlayed: "2025-01" },
+  { id: "9", title: "Tokyo", artist: "RM", album: "mono.", genre: "Alternative", year: 2018, duration: 205, tags: ["城市", "夜晚", "独处", "旅行", "韩语"], energy: 29, lastPlayed: "2022-09" },
+  { id: "10", title: "Square (2017)", artist: "Yerin Baek", album: "Every letter I sent you.", genre: "Indie", year: 2019, duration: 261, tags: ["自由", "成长", "女声", "英文", "情绪递进"], energy: 58, lastPlayed: "2025-05" },
+  { id: "11", title: "End of a day", artist: "JONGHYUN", album: "Story Op.1", genre: "Ballad", year: 2015, duration: 274, tags: ["下班", "安慰", "疲惫", "夜晚", "韩语"], energy: 25, lastPlayed: "2024-03" },
+  { id: "12", title: "Breathe", artist: "LeeHi", album: "SEOULITE", genre: "Ballad", year: 2016, duration: 288, tags: ["安慰", "疲惫", "治愈", "女声", "韩语"], energy: 26, lastPlayed: "2023-06" },
+  { id: "13", title: "D (Half Moon)", artist: "DEAN, Gaeko", album: "130 mood : TRBL", genre: "K-R&B", year: 2016, duration: 229, tags: ["深夜", "思念", "氛围", "韩语"], energy: 40, lastPlayed: "2022-11" },
+  { id: "14", title: "ANTIFRAGILE", artist: "LE SSERAFIM", album: "ANTIFRAGILE", genre: "K-Pop", year: 2022, duration: 184, tags: ["力量", "自信", "运动", "女声", "韩语"], energy: 88, lastPlayed: "2026-04" },
+  { id: "15", title: "People", artist: "Agust D", album: "D-2", genre: "K-Hip-Hop", year: 2020, duration: 197, tags: ["思考", "释然", "成长", "韩语"], energy: 52, lastPlayed: "2024-08" },
+  { id: "16", title: "NAPPA", artist: "Crush", album: "NAPPA", genre: "K-R&B", year: 2019, duration: 181, tags: ["轻松", "夏天", "律动", "韩语"], energy: 61, lastPlayed: "2021-07" },
+];
+
+const prompts = [
+  "晚上开车，有力量但不要太吵",
+  "找回两年没听，但以前很喜欢的韩语歌",
+  "40 分钟左右，适合下班后慢慢放松",
+];
+
+function analyze(query: string, songs: Song[]): Result[] {
+  const q = query.toLowerCase();
+  const quiet = /不要太吵|安静|放松|睡前|温柔|轻柔/.test(q);
+  const powerful = /力量|自信|振作|能量/.test(q);
+  const night = /晚上|夜晚|深夜|开车|下班/.test(q);
+  const korean = /韩语|韩国|k-pop|kpop/.test(q);
+  const rediscover = /很久|没听|找回|以前|两年|重新发现/.test(q);
+  const female = /女声|女歌手/.test(q);
+  const wanted = ["释然", "叙事", "夜晚", "情绪递进", "轻盈", "自信", "通勤", "治愈", "温柔", "独处", "安静", "深夜", "克制", "氛围", "力量", "下班", "安慰", "疲惫", "韩语"]
+    .filter((tag) => q.includes(tag.toLowerCase()));
+
+  return songs
+    .map((song) => {
+      let score = 1;
+      const reasons: string[] = [];
+      const tagText = `${song.tags.join(" ")} ${song.genre} ${song.artist}`.toLowerCase();
+      if (quiet && song.energy <= 55) { score += 4; reasons.push(`能量值 ${song.energy}，保持克制`); }
+      if (quiet && song.energy > 75) score -= 5;
+      if (powerful && song.energy >= 45 && song.energy <= 75) { score += 4; reasons.push("有向前感，但不过度刺激"); }
+      if (night && song.tags.some((tag) => ["夜晚", "深夜", "通勤", "下班", "城市"].includes(tag))) { score += 4; reasons.push("符合夜间与返程场景"); }
+      if (korean && tagText.includes("韩语")) { score += 5; reasons.push("来自你的韩语收藏"); }
+      if (female && song.tags.includes("女声")) { score += 4; reasons.push("符合女声条件"); }
+      if (rediscover && song.lastPlayed && song.lastPlayed < "2025-01") { score += 6; reasons.push(`上次播放停留在 ${song.lastPlayed.replace("-", " 年 ")} 月`); }
+      wanted.forEach((tag) => {
+        if (tagText.includes(tag.toLowerCase())) { score += 2; reasons.push(`带有“${tag}”感`); }
+      });
+      if (reasons.length === 0) reasons.push(`与你资料库中的 ${song.genre} 偏好相近`);
+      return { ...song, score, reason: [...new Set(reasons)].slice(0, 2).join("，") };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.min(10, songs.length));
+}
+
+function parseCsv(text: string): Song[] {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map((value) => value.replace(/^"|"$/g, "").trim().toLowerCase());
+  return lines.slice(1).map((line, index) => {
+    const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map((value) => value.replace(/^"|"$/g, "").trim()) ?? [];
+    const get = (...names: string[]) => values[headers.findIndex((header) => names.includes(header))] ?? "";
+    const genre = get("genre", "类型") || "Unknown";
+    return {
+      id: `import-${index}`,
+      title: get("name", "title", "歌曲", "名称") || `Track ${index + 1}`,
+      artist: get("artist", "艺人") || "Unknown Artist",
+      album: get("album", "专辑") || "Unknown Album",
+      genre,
+      year: Number(get("year", "年份")) || 0,
+      duration: Math.round((Number(get("time", "duration", "时长")) || 210000) / 1000),
+      tags: [genre],
+      energy: 50,
+      lastPlayed: get("last played", "lastplayed", "上次播放")?.slice(0, 7),
+    };
+  });
+}
+
+function parseXml(text: string): Song[] {
+  const document = new DOMParser().parseFromString(text, "application/xml");
+  const dicts = Array.from(document.querySelectorAll("dict"));
+  const songs: Song[] = [];
+  for (const dict of dicts) {
+    const children = Array.from(dict.children);
+    const data: Record<string, string> = {};
+    for (let index = 0; index < children.length - 1; index += 1) {
+      if (children[index].tagName === "key") data[children[index].textContent ?? ""] = children[index + 1].textContent ?? "";
+    }
+    if (!data.Name || !data.Artist) continue;
+    songs.push({
+      id: data["Track ID"] || `xml-${songs.length}`,
+      title: data.Name,
+      artist: data.Artist,
+      album: data.Album || "Unknown Album",
+      genre: data.Genre || "Unknown",
+      year: Number(data.Year) || 0,
+      duration: Math.round((Number(data["Total Time"]) || 210000) / 1000),
+      tags: [data.Genre || "Unknown"],
+      energy: 50,
+      lastPlayed: data["Play Date UTC"]?.slice(0, 7),
+    });
+  }
+  return songs;
+}
+
+export default function Home() {
+  const [librarySongs, setLibrarySongs] = useState<Song[]>(demoLibrary);
+  const [libraryName, setLibraryName] = useState("Yang 的示例资料库");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Result[]>([]);
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const visibleResults = useMemo(() => results.filter((song) => !excluded.has(song.id)), [results, excluded]);
+  const totalMinutes = Math.round(visibleResults.reduce((sum, song) => sum + song.duration, 0) / 60);
+
+  function generate() {
+    if (!query.trim()) return;
+    setLoading(true);
+    setSaved(false);
+    window.setTimeout(() => {
+      setResults(analyze(query, librarySongs));
+      setExcluded(new Set());
+      setLoading(false);
+    }, 650);
+  }
+
+  async function importLibrary(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const songs = file.name.toLowerCase().endsWith(".xml") ? parseXml(text) : parseCsv(text);
+    if (songs.length) {
+      setLibrarySongs(songs);
+      setLibraryName(file.name.replace(/\.(csv|xml)$/i, ""));
+      setResults([]);
+      setShowImport(false);
+    }
+  }
+
+  function exportPlaylist() {
+    const content = ["Title,Artist,Album", ...visibleResults.map((song) => `"${song.title}","${song.artist}","${song.album}"`)].join("\n");
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
+    link.download = "AI-Music-Companion-Playlist.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f5f3ee] text-[#1c1b19]">
+      <nav className="border-b border-black/[0.07] bg-[#f5f3ee]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#23211e] text-white"><Music2 className="h-4 w-4" /></div>
+            <div><p className="text-sm font-semibold">Music Companion</p><p className="text-[10px] uppercase tracking-[0.16em] text-[#8a857c]">Your library, understood</p></div>
+          </div>
+          <button onClick={() => setShowImport(true)} className="flex items-center gap-2 rounded-full border border-black/10 bg-white/60 px-4 py-2 text-sm transition hover:bg-white">
+            <Library className="h-4 w-4" />
+            <span className="hidden sm:inline">{libraryName}</span>
+            <span className="rounded-full bg-[#ece8df] px-2 py-0.5 text-xs">{librarySongs.length}</span>
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </nav>
+
+      <section className="mx-auto max-w-7xl px-5 pb-20 pt-14 md:px-8 md:pt-20">
+        <div className="grid items-end gap-10 lg:grid-cols-[1fr_0.6fr]">
+          <div>
+            <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[#967047]"><Sparkles className="h-3.5 w-3.5" />只在你的音乐里寻找</div>
+            <h1 className="max-w-4xl font-serif text-5xl leading-[1.08] tracking-[-0.035em] md:text-7xl">
+              你想从自己的<br />音乐里找些什么？
+            </h1>
+          </div>
+          <p className="max-w-md border-l border-black/10 pl-5 text-sm leading-7 text-[#716d66]">
+            不用再手动翻歌单。描述时间、场景、语言或情绪，我会从你的资料库中组合出此刻想听的音乐。
+          </p>
+        </div>
+
+        <div className="mt-12 rounded-[30px] border border-black/[0.08] bg-white p-3 shadow-[0_24px_80px_rgba(49,42,31,0.08)]">
+          <div className="flex items-start gap-3 p-3 md:p-5">
+            <Search className="mt-1 h-5 w-5 shrink-0 text-[#9a948b]" />
+            <textarea
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") generate(); }}
+              placeholder="比如：晚上开车，有力量但不要太吵；只要资料库里的韩语歌……"
+              className="min-h-20 w-full resize-none bg-transparent text-lg leading-8 outline-none placeholder:text-[#b4afa7]"
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/[0.06] px-3 pt-3">
+            <div className="flex flex-wrap gap-2">
+              {prompts.map((prompt) => <button key={prompt} onClick={() => setQuery(prompt)} className="rounded-full bg-[#f4f1eb] px-3 py-1.5 text-xs text-[#6f6961] hover:bg-[#ece7de]">{prompt}</button>)}
+            </div>
+            <button onClick={generate} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full bg-[#24221f] px-5 text-sm font-medium text-white transition hover:bg-black disabled:opacity-40">
+              {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {loading ? "正在理解你的资料库" : "从我的资料库生成"}
+            </button>
+          </div>
+        </div>
+
+        {results.length === 0 && !loading && (
+          <div className="mt-14 grid gap-4 md:grid-cols-3">
+            {[
+              [SlidersHorizontal, "自然语言筛选", "不用记住复杂分类，说出你真正想听的感觉。"],
+              [Clock3, "重新发现旧收藏", "找回很久没听，却曾经陪伴过你的歌曲。"],
+              [ListMusic, "整理成可用歌单", "移除不合适的歌，再保存或导出最终结果。"],
+            ].map(([Icon, title, body]) => {
+              const CardIcon = Icon as typeof SlidersHorizontal;
+              return <div key={title as string} className="rounded-2xl border border-black/[0.07] p-5"><CardIcon className="h-5 w-5 text-[#967047]" /><h2 className="mt-6 font-medium">{title as string}</h2><p className="mt-2 text-sm leading-6 text-[#817b73]">{body as string}</p></div>;
+            })}
+          </div>
+        )}
+
+        {results.length > 0 && !loading && (
+          <section className="mt-14">
+            <div className="flex flex-wrap items-end justify-between gap-5">
+              <div><p className="text-xs uppercase tracking-[0.17em] text-[#967047]">A playlist from your library</p><h2 className="mt-2 font-serif text-3xl">为“{query}”找到的歌</h2><p className="mt-2 text-sm text-[#817b73]">{visibleResults.length} 首 · 约 {totalMinutes} 分钟 · 所有歌曲均来自你的资料库</p></div>
+              <div className="flex gap-2">
+                <button onClick={exportPlaylist} className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm"><Download className="h-4 w-4" />导出 CSV</button>
+                <button onClick={() => setSaved(true)} className="flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-sm text-white">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存" : "保存歌单"}</button>
+              </div>
+            </div>
+            <div className="mt-7 overflow-hidden rounded-3xl border border-black/[0.08] bg-white">
+              {visibleResults.map((song, index) => (
+                <article key={song.id} className="group grid grid-cols-[42px_1fr_auto] items-center gap-4 border-b border-black/[0.06] p-4 last:border-0 md:grid-cols-[42px_1fr_1.2fr_auto] md:px-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0ece4] text-xs text-[#8d857a] group-hover:bg-[#24221f] group-hover:text-white">{index + 1}</div>
+                  <div><h3 className="font-medium">{song.title}</h3><p className="mt-1 text-sm text-[#8b857c]">{song.artist} · {song.album}</p></div>
+                  <div className="hidden md:block"><p className="text-sm text-[#625e57]">{song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f4f1eb] px-2 py-1 text-[10px] text-[#827a70]">{tag}</span>)}</div></div>
+                  <button onClick={() => setExcluded((current) => new Set([...current, song.id]))} className="rounded-full p-2 text-[#aaa49b] hover:bg-[#f3efe8] hover:text-[#3c3833]" aria-label={`移除 ${song.title}`}><X className="h-4 w-4" /></button>
+                </article>
+              ))}
+              {visibleResults.length === 0 && <div className="p-12 text-center text-sm text-[#8b857c]">你移除了全部结果。换一种描述再试试。</div>}
+            </div>
+            <p className="mt-4 text-center text-xs text-[#948e85]">你移除和保留的歌曲，会逐渐帮助系统理解“你的力量感”和“你的放松”具体是什么。</p>
+          </section>
+        )}
+      </section>
+
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1d1b18]/60 p-5 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl bg-[#fcfbf8] p-7 shadow-2xl">
+            <div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-[#967047]">Your music library</p><h2 className="mt-2 font-serif text-3xl">连接你的资料库</h2></div><button onClick={() => setShowImport(false)} className="p-2"><X className="h-5 w-5" /></button></div>
+            <p className="mt-4 text-sm leading-6 text-[#746f67]">在 Mac 的“音乐”App 中选择“文件 → 资料库 → 导出资料库”，然后上传 XML；也支持常见 CSV 歌曲列表。文件只在当前浏览器中处理。</p>
+            <input ref={fileInput} onChange={importLibrary} type="file" accept=".xml,.csv,text/csv,application/xml" className="hidden" />
+            <button onClick={() => fileInput.current?.click()} className="mt-6 flex w-full items-center justify-between rounded-2xl border border-dashed border-black/20 bg-[#f5f2ec] p-5 text-left hover:border-[#967047]">
+              <span className="flex items-center gap-4"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white"><Upload className="h-5 w-5" /></span><span><strong className="block text-sm">上传 Apple Music 资料库</strong><span className="mt-1 block text-xs text-[#8c867d]">XML 或 CSV</span></span></span><ArrowRight className="h-4 w-4" />
+            </button>
+            <button onClick={() => { setLibrarySongs(demoLibrary); setLibraryName("Yang 的示例资料库"); setShowImport(false); }} className="mt-3 flex w-full items-center gap-4 rounded-2xl border border-black/[0.07] p-5 text-left hover:bg-[#f5f2ec]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f2eee7]"><FileMusic className="h-5 w-5" /></span><span><strong className="block text-sm">继续使用示例资料库</strong><span className="mt-1 block text-xs text-[#8c867d]">16 首带情绪与场景标签的歌曲</span></span>
+            </button>
+            <div className="mt-5 flex items-center gap-2 text-xs text-[#918b82]"><Headphones className="h-3.5 w-3.5" />Apple Music 直接同步将在验证体验后接入</div>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}

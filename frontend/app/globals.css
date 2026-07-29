@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+html { background: #f5f3ee; }
+
+body {
+  margin: 0;
+  color: #1c1b19;
+  background: #f5f3ee;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  min-height: 100vh;
+}
+
+button, textarea { font: inherit; }
+
+::selection { background: #d9c4a7; color: #1c1b19; }
+
+.fade-up { animation: fade-up 0.65s ease both; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
