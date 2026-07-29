@@ -33,6 +33,8 @@ type Song = {
   tags: string[];
   energy: number;
   lastPlayed?: string;
+  language?: string;
+  aiSummary?: string;
 };
 
 type Result = Song & { reason: string; score: number };
@@ -154,6 +156,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
   const visibleResults = useMemo(() => results.filter((song) => !excluded.has(song.id)), [results, excluded]);
@@ -180,11 +184,88 @@ export default function Home() {
       setLibraryName(file.name.replace(/\.(csv|xml)$/i, ""));
       setResults([]);
       setShowImport(false);
+      await analyzeImportedSongs(songs);
+    }
+  }
+
+  async function analyzeImportedSongs(songs: Song[]) {
+    setAnalyzing(true);
+    const batchSize = 30;
+    const analyses = new Map<
+      string,
+      { language: string; energy: number; tags: string[]; ai_summary: string }
+    >();
+    try {
+      for (let offset = 0; offset < songs.length; offset += batchSize) {
+        const batch = songs.slice(offset, offset + batchSize);
+        setAnalysisMessage(
+          `AI 正在分析 ${offset + 1}–${Math.min(offset + batchSize, songs.length)} / ${songs.length} 首…`,
+        );
+        const response = await fetch("/api/analyze-library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            songs: batch.map(({ id, title, artist, album, genre, year }) => ({
+              id, title, artist, album, genre, year,
+            })),
+          }),
+        });
+        const data = (await response.json()) as {
+          analyses?: Array<{
+            id: string;
+            language: string;
+            energy: number;
+            tags: string[];
+            ai_summary: string;
+          }>;
+          error?: string;
+        };
+        if (!response.ok || !data.analyses) throw new Error(data.error ?? "AI 分析失败");
+        data.analyses.forEach((analysis) => analyses.set(analysis.id, analysis));
+      }
+      setLibrarySongs(
+        songs.map((song) => {
+          const analysis = analyses.get(song.id);
+          return analysis
+            ? {
+                ...song,
+                energy: analysis.energy,
+                language: analysis.language,
+                tags: analysis.tags,
+                aiSummary: analysis.ai_summary,
+              }
+            : song;
+        }),
+      );
+      setAnalysisMessage(`已完成 ${analyses.size} 首歌曲的 AI 标签分析`);
+    } catch (error) {
+      setAnalysisMessage(error instanceof Error ? error.message : "AI 分析失败");
+    } finally {
+      setAnalyzing(false);
     }
   }
 
   function exportPlaylist() {
-    const content = ["Title,Artist,Album", ...visibleResults.map((song) => `"${song.title}","${song.artist}","${song.album}"`)].join("\n");
+    const escape = (value: string | number | undefined) =>
+      `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const content = [
+      "Title,Artist,Album,Genre,Year,Language,Energy,AI Tags,AI Summary",
+      ...visibleResults.map((song) =>
+        [
+          song.title,
+          song.artist,
+          song.album,
+          song.genre,
+          song.year,
+          song.language,
+          song.energy,
+          song.tags.join("|"),
+          song.aiSummary,
+        ]
+          .map(escape)
+          .join(","),
+      ),
+    ].join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
     link.download = "AI-Music-Companion-Playlist.csv";
@@ -208,6 +289,13 @@ export default function Home() {
           </button>
         </div>
       </nav>
+
+      {analysisMessage && (
+        <div className="mx-auto mt-4 flex max-w-7xl items-center gap-2 px-5 text-xs text-[#716d66] md:px-8">
+          {analyzing ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-[#967047]" />}
+          {analysisMessage}
+        </div>
+      )}
 
       <section className="mx-auto max-w-7xl px-5 pb-20 pt-14 md:px-8 md:pt-20">
         <div className="grid items-end gap-10 lg:grid-cols-[1fr_0.6fr]">
@@ -271,7 +359,7 @@ export default function Home() {
                 <article key={song.id} className="group grid grid-cols-[42px_1fr_auto] items-center gap-4 border-b border-black/[0.06] p-4 last:border-0 md:grid-cols-[42px_1fr_1.2fr_auto] md:px-6">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0ece4] text-xs text-[#8d857a] group-hover:bg-[#24221f] group-hover:text-white">{index + 1}</div>
                   <div><h3 className="font-medium">{song.title}</h3><p className="mt-1 text-sm text-[#8b857c]">{song.artist} · {song.album}</p></div>
-                  <div className="hidden md:block"><p className="text-sm text-[#625e57]">{song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f4f1eb] px-2 py-1 text-[10px] text-[#827a70]">{tag}</span>)}</div></div>
+                  <div className="hidden md:block"><p className="text-sm text-[#625e57]">{song.aiSummary || song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f4f1eb] px-2 py-1 text-[10px] text-[#827a70]">{tag}</span>)}</div></div>
                   <button onClick={() => setExcluded((current) => new Set([...current, song.id]))} className="rounded-full p-2 text-[#aaa49b] hover:bg-[#f3efe8] hover:text-[#3c3833]" aria-label={`移除 ${song.title}`}><X className="h-4 w-4" /></button>
                 </article>
               ))}
