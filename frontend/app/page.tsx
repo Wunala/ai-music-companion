@@ -8,6 +8,7 @@ import {
   Clock3,
   Disc3,
   Download,
+  ExternalLink,
   FileMusic,
   Headphones,
   Library,
@@ -56,12 +57,6 @@ const demoLibrary: Song[] = [
   { id: "14", title: "ANTIFRAGILE", artist: "LE SSERAFIM", album: "ANTIFRAGILE", genre: "K-Pop", year: 2022, duration: 184, tags: ["力量", "自信", "运动", "女声", "韩语"], energy: 88, lastPlayed: "2026-04" },
   { id: "15", title: "People", artist: "Agust D", album: "D-2", genre: "K-Hip-Hop", year: 2020, duration: 197, tags: ["思考", "释然", "成长", "韩语"], energy: 52, lastPlayed: "2024-08" },
   { id: "16", title: "NAPPA", artist: "Crush", album: "NAPPA", genre: "K-R&B", year: 2019, duration: 181, tags: ["轻松", "夏天", "律动", "韩语"], energy: 61, lastPlayed: "2021-07" },
-];
-
-const prompts = [
-  "晚上开车，有力量但不要太吵",
-  "找回两年没听，但以前很喜欢的韩语歌",
-  "40 分钟左右，适合下班后慢慢放松",
 ];
 
 function analyze(query: string, songs: Song[]): Result[] {
@@ -313,6 +308,31 @@ export default function Home() {
     URL.revokeObjectURL(link.href);
   }
 
+  function savePlaylist() {
+    const savedPlaylists = JSON.parse(
+      window.localStorage.getItem("music-companion-playlists") ?? "[]",
+    ) as unknown[];
+    savedPlaylists.unshift({
+      id: crypto.randomUUID(),
+      title: playlistTitle || query,
+      query,
+      summary: playlistSummary,
+      createdAt: new Date().toISOString(),
+      songs: visibleResults.map(({ id, title, artist, album, reason }) => ({
+        id,
+        title,
+        artist,
+        album,
+        reason,
+      })),
+    });
+    window.localStorage.setItem(
+      "music-companion-playlists",
+      JSON.stringify(savedPlaylists.slice(0, 50)),
+    );
+    setSaved(true);
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f3ee] text-[#1c1b19]">
       <nav className="border-b border-black/[0.07] bg-[#f5f3ee]/90 backdrop-blur">
@@ -361,10 +381,7 @@ export default function Home() {
               className="min-h-20 w-full resize-none bg-transparent text-lg leading-8 outline-none placeholder:text-[#b4afa7]"
             />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/[0.06] px-3 pt-3">
-            <div className="flex flex-wrap gap-2">
-              {prompts.map((prompt) => <button key={prompt} onClick={() => setQuery(prompt)} className="rounded-full bg-[#f4f1eb] px-3 py-1.5 text-xs text-[#6f6961] hover:bg-[#ece7de]">{prompt}</button>)}
-            </div>
+          <div className="flex items-center justify-end border-t border-black/[0.06] px-3 pt-3">
             <button onClick={generate} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full bg-[#24221f] px-5 text-sm font-medium text-white transition hover:bg-black disabled:opacity-40">
               {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {loading ? "正在理解你的资料库" : "从我的资料库生成"}
@@ -401,7 +418,7 @@ export default function Home() {
               </div>
               <div className="flex gap-2">
                 <button onClick={exportPlaylist} className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm"><Download className="h-4 w-4" />导出 CSV</button>
-                <button onClick={() => setSaved(true)} className="flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-sm text-white">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存" : "保存歌单"}</button>
+                <button onClick={savePlaylist} className="flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-sm text-white">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存到此设备" : "保存歌单"}</button>
               </div>
             </div>
             <div className="mt-7 overflow-hidden rounded-3xl border border-black/[0.08] bg-white">
@@ -410,7 +427,20 @@ export default function Home() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0ece4] text-xs text-[#8d857a] group-hover:bg-[#24221f] group-hover:text-white">{index + 1}</div>
                   <div><h3 className="font-medium">{song.title}</h3><p className="mt-1 text-sm text-[#8b857c]">{song.artist} · {song.album}</p></div>
                   <div className="hidden md:block"><p className="text-sm text-[#625e57]">{song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f4f1eb] px-2 py-1 text-[10px] text-[#827a70]">{tag}</span>)}</div></div>
-                  <button onClick={() => setExcluded((current) => new Set([...current, song.id]))} className="rounded-full p-2 text-[#aaa49b] hover:bg-[#f3efe8] hover:text-[#3c3833]" aria-label={`移除 ${song.title}`}><X className="h-4 w-4" /></button>
+                  <div className="flex items-center gap-1">
+                    <a
+                      href={`https://music.apple.com/search?term=${encodeURIComponent(`${song.title} ${song.artist}`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 rounded-full bg-[#f2eee7] px-3 py-2 text-xs font-medium text-[#635d55] transition hover:bg-[#e9e3d9] hover:text-black"
+                      aria-label={`在 Apple Music 中查找 ${song.title}`}
+                    >
+                      <Music2 className="h-3.5 w-3.5" />
+                      <span className="hidden lg:inline">Apple Music</span>
+                      <ExternalLink className="hidden h-3 w-3 lg:block" />
+                    </a>
+                    <button onClick={() => setExcluded((current) => new Set([...current, song.id]))} className="rounded-full p-2 text-[#aaa49b] hover:bg-[#f3efe8] hover:text-[#3c3833]" aria-label={`移除 ${song.title}`}><X className="h-4 w-4" /></button>
+                  </div>
                 </article>
               ))}
               {visibleResults.length === 0 && <div className="p-12 text-center text-sm text-[#8b857c]">你移除了全部结果。换一种描述再试试。</div>}
