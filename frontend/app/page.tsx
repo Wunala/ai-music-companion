@@ -69,11 +69,11 @@ const syncShortcutUrl =
 const queueShortcutUrl =
   process.env.NEXT_PUBLIC_QUEUE_SHORTCUT_URL ??
   "https://www.icloud.com/shortcuts/ff3fd03e1f0f4ecc8e0290bd801bb836";
-const quickPrompts = [
-  "🌙 深夜开车",
-  "💿 最近没听过",
-  "⚡ 只要女团",
-  "🫧 轻松一点",
+const defaultPromptSuggestions = [
+  { label: "🌙 深夜开车", query: "深夜开车时适合听的歌" },
+  { label: "💿 最近没听过", query: "推荐几首很久没播放的收藏" },
+  { label: "🎲 随机来几首", query: "从我的资料库随机推荐5首歌" },
+  { label: "🫧 轻松一点", query: "推荐几首轻松、不吵的歌" },
 ];
 const queueColors = ["#C8FF4D", "#E9E7FF", "#FFB4BB", "#B9E6FF"];
 
@@ -183,6 +183,9 @@ export default function Home() {
   const [pairingToken, setPairingToken] = useState("");
   const [syncStatus, setSyncStatus] = useState("");
   const [creatingPair, setCreatingPair] = useState(false);
+  const [promptSuggestions, setPromptSuggestions] = useState(
+    defaultPromptSuggestions,
+  );
   const fileInput = useRef<HTMLInputElement>(null);
 
   const visibleResults = useMemo(() => results.filter((song) => !excluded.has(song.id)), [results, excluded]);
@@ -217,6 +220,58 @@ export default function Home() {
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (librarySongs.length === 0) return;
+    const first = librarySongs[0];
+    const last = librarySongs[librarySongs.length - 1];
+    const cacheKey = `music-companion-prompt-suggestions:${librarySongs.length}:${first?.title}:${last?.title}`;
+    const cached = window.localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as typeof defaultPromptSuggestions;
+        if (Array.isArray(parsed) && parsed.length === 4) {
+          setPromptSuggestions(parsed);
+          return;
+        }
+      } catch {
+        window.localStorage.removeItem(cacheKey);
+      }
+    }
+
+    const sampleSize = Math.min(160, librarySongs.length);
+    const sampledSongs = Array.from({ length: sampleSize }, (_, index) => {
+      const songIndex =
+        sampleSize === 1
+          ? 0
+          : Math.round((index * (librarySongs.length - 1)) / (sampleSize - 1));
+      const { title, artist, album, genre, year, lastPlayed } =
+        librarySongs[songIndex];
+      return { title, artist, album, genre, year, lastPlayed };
+    });
+
+    fetch("/api/suggest-prompts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ songs: sampledSongs }),
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as {
+          suggestions?: Array<{ label: string; query: string }>;
+        };
+      })
+      .then((data) => {
+        if (data?.suggestions?.length === 4) {
+          setPromptSuggestions(data.suggestions);
+          window.localStorage.setItem(
+            cacheKey,
+            JSON.stringify(data.suggestions),
+          );
+        }
+      })
+      .catch(() => undefined);
+  }, [librarySongs]);
 
   useEffect(() => {
     if (!pairingToken || !showImport) return;
@@ -535,8 +590,8 @@ export default function Home() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#15151a]/10 px-3 pt-3">
             <div className="flex flex-wrap gap-2">
-              {quickPrompts.map((prompt) => (
-                <button key={prompt} onClick={() => setQuery(prompt.slice(3))} className="rounded-full bg-[#f0efff] px-3 py-2 text-xs font-bold text-[#5149d8] transition hover:bg-[#e3e0ff]">{prompt}</button>
+              {promptSuggestions.map((suggestion) => (
+                <button key={suggestion.label} onClick={() => setQuery(suggestion.query)} className="rounded-full bg-[#f0efff] px-3 py-2 text-xs font-bold text-[#5149d8] transition hover:bg-[#e3e0ff]">{suggestion.label}</button>
               ))}
             </div>
             <button onClick={generate} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#635bff] px-5 text-sm font-black text-white shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 disabled:opacity-40">
