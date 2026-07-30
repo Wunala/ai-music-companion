@@ -8,7 +8,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PAIR_TTL_SECONDS = 10 * 60;
+const PAIR_TTL_SECONDS = 60 * 60;
 const LIBRARY_TTL_SECONDS = 90 * 24 * 60 * 60;
 
 type PairRecord = {

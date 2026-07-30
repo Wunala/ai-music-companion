@@ -274,7 +274,7 @@ export default function Home() {
       setPairingToken(data.sessionToken);
       setSyncStatus(
         data.persistent
-          ? "等待快捷指令上传，配对码十分钟内有效"
+          ? "等待快捷指令上传，配对码60分钟内有效"
           : "本地测试模式：请保持当前开发服务器运行",
       );
     } catch (error) {
