@@ -72,6 +72,11 @@ const troubleshooting = [
       "检查同步快捷指令中的 Find Music 是否关闭了 Limit，然后重新生成配对码并运行一次完整同步。",
   },
   {
+    question: "同步大量歌曲时提示“You can allow this in Settings”怎么办？",
+    answer:
+      "前往 iPhone 设置 → 快捷指令 → 高级，开启“允许共享大量数据”（Allow Sharing Large Amounts of Data），再重新运行同步快捷指令。",
+  },
+  {
     question: "点击播放后没有找到歌曲怎么办？",
     answer:
       "网页只会播放本机资料库中的匹配歌曲。同名版本、现场版或合作艺人的元数据不同，可能导致快捷指令无法精确匹配。",

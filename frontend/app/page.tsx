@@ -700,6 +700,9 @@ export default function Home() {
                       </span>
                     )}
                   </div>
+                  <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-[11px] font-medium leading-5 text-[#5f5a70]">
+                    同步几百首歌曲前，请在 iPhone「设置 → 快捷指令 → 高级」开启“允许共享大量数据”。
+                  </p>
                   {!pairingCode ? (
                     <>
                       <p className="mt-1 text-xs leading-5 text-[#7f776c]">
