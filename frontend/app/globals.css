@@ -6,19 +6,20 @@
 
 * { box-sizing: border-box; }
 
-html { background: #f5f3ee; }
+html { background: #f7f7fb; }
 
 body {
   margin: 0;
-  color: #1c1b19;
-  background: #f5f3ee;
-  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #15151a;
+  background: #f7f7fb;
+  font-family: ui-rounded, "SF Pro Rounded", Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   min-height: 100vh;
 }
 
 button, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
 
-::selection { background: #d9c4a7; color: #1c1b19; }
+::selection { background: #c8ff4d; color: #15151a; }
 
 .fade-up { animation: fade-up 0.65s ease both; }
 

@@ -68,6 +68,13 @@ const syncShortcutUrl =
 const queueShortcutUrl =
   process.env.NEXT_PUBLIC_QUEUE_SHORTCUT_URL ??
   "https://www.icloud.com/shortcuts/ff3fd03e1f0f4ecc8e0290bd801bb836";
+const quickPrompts = [
+  "🌙 深夜开车",
+  "💿 最近没听过",
+  "⚡ 只要女团",
+  "🫧 轻松一点",
+];
+const queueColors = ["#C8FF4D", "#E9E7FF", "#FFB4BB", "#B9E6FF"];
 
 function analyze(query: string, songs: Song[]): Result[] {
   const q = query.toLowerCase();
@@ -471,17 +478,17 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f3ee] text-[#1c1b19]">
-      <nav className="border-b border-black/[0.07] bg-[#f5f3ee]/90 backdrop-blur">
+    <main className="min-h-screen overflow-hidden bg-[#f7f7fb] text-[#15151a]">
+      <nav className="border-b-2 border-[#15151a] bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#23211e] text-white"><Music2 className="h-4 w-4" /></div>
-            <div><p className="text-sm font-semibold">Music Companion</p><p className="text-[10px] uppercase tracking-[0.16em] text-[#8a857c]">Your library, understood</p></div>
+            <div className="relative flex h-10 w-10 rotate-[-4deg] items-center justify-center rounded-xl border-2 border-[#15151a] bg-[#635bff] text-white shadow-[3px_3px_0_#15151a]"><Music2 className="h-5 w-5" /><span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#15151a] bg-[#c8ff4d]" /></div>
+            <div><p className="text-sm font-black tracking-[-0.01em]">Music Companion</p><p className="text-[11px] font-medium text-[#74747f]">Your library in motion</p></div>
           </div>
-          <button onClick={() => setShowImport(true)} className="flex items-center gap-2 rounded-full border border-black/10 bg-white/60 px-4 py-2 text-sm transition hover:bg-white">
-            <Library className="h-4 w-4" />
+          <button onClick={() => setShowImport(true)} className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#c8ff4d] px-3 py-2 text-sm font-bold shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 sm:px-4">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#15151a]" />
             <span className="hidden sm:inline">{libraryName}</span>
-            <span className="rounded-full bg-[#ece8df] px-2 py-0.5 text-xs">{librarySongs.length}</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-xs">{librarySongs.length} 首</span>
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -494,34 +501,40 @@ export default function Home() {
         </div>
       )}
 
-      <section className="mx-auto max-w-7xl px-5 pb-20 pt-14 md:px-8 md:pt-20">
-        <div className="grid items-end gap-10 lg:grid-cols-[1fr_0.6fr]">
+      <section className="relative mx-auto max-w-7xl px-5 pb-24 pt-12 md:px-8 md:pt-16">
+        <div className="pointer-events-none absolute -right-24 top-10 h-52 w-52 rounded-full bg-[#e9e7ff] blur-3xl" />
+        <div className="relative grid items-end gap-8 lg:grid-cols-[1fr_0.48fr]">
           <div>
-            <div className="mb-5 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[#967047]"><Sparkles className="h-3.5 w-3.5" />只在你的音乐里寻找</div>
-            <h1 className="max-w-4xl font-serif text-5xl leading-[1.08] tracking-[-0.035em] md:text-7xl">
-              你想从自己的<br />音乐里找些什么？
+            <div className="mb-5 flex w-fit rotate-[-2deg] items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#ffb4bb] px-3 py-1.5 text-xs font-black shadow-[2px_2px_0_#15151a]"><Disc3 className="h-4 w-4" />只在你的收藏里找</div>
+            <h1 className="max-w-4xl text-5xl font-black leading-[0.98] tracking-[-0.055em] md:text-7xl lg:text-[82px]">
+              今天想听什么？<br /><span className="text-[#635bff]">从你的音乐里找。</span>
             </h1>
           </div>
-          <p className="max-w-md border-l border-black/10 pl-5 text-sm leading-7 text-[#716d66]">
-            不用再手动翻歌单。描述时间、场景、语言或情绪，我会从你的资料库中组合出此刻想听的音乐。
+          <p className="max-w-sm text-base font-medium leading-7 text-[#656570]">
+            不用翻歌单。说出此刻的状态，马上得到只属于你资料库的播放队列。
           </p>
         </div>
 
-        <div className="mt-12 rounded-[30px] border border-black/[0.08] bg-white p-3 shadow-[0_24px_80px_rgba(49,42,31,0.08)]">
+        <div className="relative mt-10 rounded-[28px] border-2 border-[#15151a] bg-white p-3 shadow-[7px_7px_0_#15151a]">
           <div className="flex items-start gap-3 p-3 md:p-5">
-            <Search className="mt-1 h-5 w-5 shrink-0 text-[#9a948b]" />
+            <Search className="mt-1 h-5 w-5 shrink-0 text-[#635bff]" />
             <textarea
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") generate(); }}
-              placeholder="比如：晚上开车，有力量但不要太吵；只要资料库里的韩语歌……"
-              className="min-h-20 w-full resize-none bg-transparent text-lg leading-8 outline-none placeholder:text-[#b4afa7]"
+              placeholder="比如：晚上开车，来三首有力量但不要太吵的歌"
+              className="min-h-20 w-full resize-none bg-transparent text-lg font-semibold leading-8 outline-none placeholder:font-medium placeholder:text-[#aaaab5]"
             />
           </div>
-          <div className="flex items-center justify-end border-t border-black/[0.06] px-3 pt-3">
-            <button onClick={generate} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full bg-[#24221f] px-5 text-sm font-medium text-white transition hover:bg-black disabled:opacity-40">
-              {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {loading ? "正在理解你的资料库" : "从我的资料库生成"}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#15151a]/10 px-3 pt-3">
+            <div className="flex flex-wrap gap-2">
+              {quickPrompts.map((prompt) => (
+                <button key={prompt} onClick={() => setQuery(prompt.slice(3))} className="rounded-full bg-[#f0efff] px-3 py-2 text-xs font-bold text-[#5149d8] transition hover:bg-[#e3e0ff]">{prompt}</button>
+              ))}
+            </div>
+            <button onClick={generate} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#635bff] px-5 text-sm font-black text-white shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 disabled:opacity-40">
+              {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              {loading ? "正在找歌…" : "开始找歌"}
             </button>
           </div>
         </div>
@@ -534,35 +547,37 @@ export default function Home() {
               [ListMusic, "整理成可用歌单", "移除不合适的歌，再保存或导出最终结果。"],
             ].map(([Icon, title, body]) => {
               const CardIcon = Icon as typeof SlidersHorizontal;
-              return <div key={title as string} className="rounded-2xl border border-black/[0.07] p-5"><CardIcon className="h-5 w-5 text-[#967047]" /><h2 className="mt-6 font-medium">{title as string}</h2><p className="mt-2 text-sm leading-6 text-[#817b73]">{body as string}</p></div>;
+              const colors = ["bg-[#c8ff4d]", "bg-[#e9e7ff]", "bg-[#ffb4bb]"];
+              const cardIndex = title === "自然语言筛选" ? 0 : title === "重新发现旧收藏" ? 1 : 2;
+              return <div key={title as string} className={`rounded-2xl border-2 border-[#15151a] p-5 shadow-[3px_3px_0_#15151a] ${colors[cardIndex]}`}><span className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#15151a] bg-white"><CardIcon className="h-5 w-5" /></span><h2 className="mt-6 font-black">{title as string}</h2><p className="mt-2 text-sm font-medium leading-6 text-[#53535c]">{body as string}</p></div>;
             })}
           </div>
         )}
 
         {hasGenerated && !loading && (
-          <section className="mt-14">
+          <section className="mt-16">
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div>
-                <p className="flex items-center gap-2 text-xs uppercase tracking-[0.17em] text-[#967047]">
-                  A playlist from your library
-                  <span className={`rounded-full px-2 py-1 text-[10px] normal-case tracking-normal ${generationSource === "ai" ? "bg-[#e7f0e7] text-[#4d704f]" : "bg-[#f3e8dd] text-[#8a633c]"}`}>
-                    {generationSource === "ai" ? "DeepSeek AI" : "未生成"}
+                <p className="flex items-center gap-2 text-xs font-black text-[#635bff]">
+                  YOUR NEXT QUEUE
+                  <span className={`rounded-full px-2 py-1 text-[10px] ${generationSource === "ai" ? "bg-[#c8ff4d] text-[#15151a]" : "bg-[#ffb4bb] text-[#15151a]"}`}>
+                    {generationSource === "ai" ? "AI MATCHED" : "未生成"}
                   </span>
                 </p>
-                <h2 className="mt-2 font-serif text-3xl">{playlistTitle || `为“${query}”找到的歌`}</h2>
-                {playlistSummary && <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6f6961]">{playlistSummary}</p>}
-                <p className="mt-2 text-sm text-[#817b73]">{visibleResults.length} 首 · 约 {totalMinutes} 分钟 · 所有歌曲均来自你的资料库</p>
+                <h2 className="mt-2 text-3xl font-black tracking-[-0.035em] md:text-4xl">{playlistTitle || `为“${query}”找到的歌`}</h2>
+                {playlistSummary && <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-[#656570]">{playlistSummary}</p>}
+                <p className="mt-2 text-sm font-bold text-[#858590]">{visibleResults.length} 首 · 约 {totalMinutes} 分钟 · 来自你的资料库</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={exportPlaylist} className="flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm"><Download className="h-4 w-4" />导出 CSV</button>
-                <button onClick={savePlaylist} className="flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-sm text-white">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存到此设备" : "保存歌单"}</button>
+                <button onClick={exportPlaylist} className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-white px-4 py-2.5 text-sm font-bold"><Download className="h-4 w-4" />CSV</button>
+                <button onClick={savePlaylist} className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#c8ff4d] px-4 py-2.5 text-sm font-bold">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存" : "保存"}</button>
                 <button
                   onClick={createAppleMusicPlaylist}
                   disabled={visibleResults.length === 0}
-                  className="flex items-center gap-2 rounded-full bg-[#e85d68] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#d94f5b] disabled:opacity-40"
+                  className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#ff6b6b] px-5 py-2.5 text-sm font-black text-white shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 disabled:opacity-40"
                 >
                   <Music2 className="h-4 w-4" />
-                  加入 Apple Music 队列
+                  在 Apple Music 中播放
                 </button>
               </div>
             </div>
@@ -574,22 +589,22 @@ export default function Home() {
             )}
             {!generationError && visibleResults.length === 0 && (
               <div className="mt-7 rounded-3xl border border-black/[0.08] bg-white p-8 text-center">
-                <p className="font-serif text-2xl">你的资料库里没有符合条件的歌曲</p>
+                <p className="text-2xl font-black">你的资料库里没有符合条件的歌曲</p>
                 <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-[#817b73]">{playlistSummary || "可以换一个条件，或看看资料库外的推荐。"}</p>
               </div>
             )}
-            {visibleResults.length > 0 && <div className="mt-7 overflow-hidden rounded-3xl border border-black/[0.08] bg-white">
+            {visibleResults.length > 0 && <div className="mt-7 overflow-hidden rounded-[26px] border-2 border-[#15151a] bg-white shadow-[5px_5px_0_#15151a]">
               {visibleResults.map((song, index) => (
-                <article key={song.id} className="group grid grid-cols-[42px_1fr_auto] items-center gap-4 border-b border-black/[0.06] p-4 last:border-0 md:grid-cols-[42px_1fr_1.2fr_auto] md:px-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f0ece4] text-xs text-[#8d857a] group-hover:bg-[#24221f] group-hover:text-white">{index + 1}</div>
-                  <div><h3 className="font-medium">{song.title}</h3><p className="mt-1 text-sm text-[#8b857c]">{song.artist} · {song.album}</p></div>
-                  <div className="hidden md:block"><p className="text-sm text-[#625e57]">{song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f4f1eb] px-2 py-1 text-[10px] text-[#827a70]">{tag}</span>)}</div></div>
+                <article key={song.id} className="group grid grid-cols-[46px_1fr_auto] items-center gap-4 border-b-2 border-[#15151a]/10 p-4 last:border-0 md:grid-cols-[46px_1fr_1.2fr_auto] md:px-6">
+                  <div style={{ backgroundColor: queueColors[index % queueColors.length] }} className="flex h-11 w-11 rotate-[-3deg] items-center justify-center rounded-xl border-2 border-[#15151a] text-sm font-black shadow-[2px_2px_0_#15151a]">{String(index + 1).padStart(2, "0")}</div>
+                  <div><h3 className="font-black">{song.title}</h3><p className="mt-1 text-sm font-medium text-[#767680]">{song.artist} · {song.album}</p></div>
+                  <div className="hidden md:block"><p className="rounded-xl bg-[#f1f0ff] px-3 py-2 text-sm font-medium text-[#4f4b75]">{song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f1f1f5] px-2 py-1 text-[10px] font-bold text-[#72727c]">{tag}</span>)}</div></div>
                   <div className="flex items-center gap-1">
                     <a
                       href={`https://music.apple.com/search?term=${encodeURIComponent(`${song.title} ${song.artist}`)}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-1.5 rounded-full bg-[#f2eee7] px-3 py-2 text-xs font-medium text-[#635d55] transition hover:bg-[#e9e3d9] hover:text-black"
+                      className="flex items-center gap-1.5 rounded-full bg-[#ecebff] px-3 py-2 text-xs font-bold text-[#5149d8] transition hover:bg-[#dedbff]"
                       aria-label={`在 Apple Music 中查找 ${song.title}`}
                     >
                       <Music2 className="h-3.5 w-3.5" />
@@ -635,16 +650,16 @@ export default function Home() {
       </section>
 
       {showImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1d1b18]/60 p-5 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl bg-[#fcfbf8] p-7 shadow-2xl">
-            <div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-[#967047]">Your music library</p><h2 className="mt-2 font-serif text-3xl">连接你的资料库</h2></div><button onClick={() => setShowImport(false)} className="p-2"><X className="h-5 w-5" /></button></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#15151a]/70 p-5 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[28px] border-2 border-[#15151a] bg-white p-7 shadow-[7px_7px_0_#635bff]">
+            <div className="flex items-start justify-between"><div><p className="text-xs font-black text-[#635bff]">YOUR MUSIC LIBRARY</p><h2 className="mt-2 text-3xl font-black tracking-[-0.035em]">连接你的资料库</h2></div><button onClick={() => setShowImport(false)} className="rounded-full border-2 border-[#15151a] p-2"><X className="h-5 w-5" /></button></div>
             <p className="mt-4 text-sm leading-6 text-[#746f67]">
               推荐使用 iPhone 快捷指令读取 Apple Music 资料库。网页会生成一次性配对码，快捷指令上传完成后，此页面会自动载入歌曲。
             </p>
-            <div className="mt-6 rounded-2xl border border-[#967047]/25 bg-[#f4eee5] p-5">
+            <div className="mt-6 rounded-2xl border-2 border-[#15151a] bg-[#e9e7ff] p-5">
               <div className="flex items-start gap-4">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white">
-                  <Smartphone className="h-5 w-5 text-[#967047]" />
+                  <Smartphone className="h-5 w-5 text-[#635bff]" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <strong className="block text-sm">通过快捷指令同步</strong>
@@ -654,7 +669,7 @@ export default function Home() {
                         href={syncShortcutUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-full border border-[#967047]/30 bg-white px-3 py-2 text-xs font-medium text-[#715535]"
+                        className="rounded-full border-2 border-[#15151a] bg-[#c8ff4d] px-3 py-2 text-xs font-bold"
                       >
                         安装资料库同步快捷指令
                       </a>
@@ -668,7 +683,7 @@ export default function Home() {
                         href={queueShortcutUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-full border border-[#e85d68]/30 bg-white px-3 py-2 text-xs font-medium text-[#a33d47]"
+                        className="rounded-full border-2 border-[#15151a] bg-[#ffb4bb] px-3 py-2 text-xs font-bold"
                       >
                         安装播放队列快捷指令
                       </a>
@@ -686,7 +701,7 @@ export default function Home() {
                       <button
                         onClick={createPairingCode}
                         disabled={creatingPair}
-                        className="mt-4 flex items-center gap-2 rounded-full bg-[#24221f] px-4 py-2.5 text-xs font-medium text-white disabled:opacity-50"
+                        className="mt-4 flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#635bff] px-4 py-2.5 text-xs font-bold text-white shadow-[2px_2px_0_#15151a] disabled:opacity-50"
                       >
                         {creatingPair && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
                         {creatingPair ? "正在生成…" : "生成配对码"}
