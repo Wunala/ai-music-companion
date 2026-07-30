@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   Check,
@@ -485,12 +486,18 @@ export default function Home() {
             <div className="relative flex h-10 w-10 rotate-[-4deg] items-center justify-center rounded-xl border-2 border-[#15151a] bg-[#635bff] text-white shadow-[3px_3px_0_#15151a]"><Music2 className="h-5 w-5" /><span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#15151a] bg-[#c8ff4d]" /></div>
             <div><p className="text-sm font-black tracking-[-0.01em]">Music Companion</p><p className="text-[11px] font-medium text-[#74747f]">Your library in motion</p></div>
           </div>
-          <button onClick={() => setShowImport(true)} className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#c8ff4d] px-3 py-2 text-sm font-bold shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 sm:px-4">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#15151a]" />
-            <span className="hidden sm:inline">{libraryName}</span>
-            <span className="rounded-full bg-white px-2 py-0.5 text-xs">{librarySongs.length} 首</span>
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link href="/guide" className="rounded-full px-2 py-2 text-xs font-bold transition hover:bg-[#ecebff] sm:px-3 sm:text-sm">
+              <span className="sm:hidden">教程</span>
+              <span className="hidden sm:inline">使用教程</span>
+            </Link>
+            <button onClick={() => setShowImport(true)} className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#c8ff4d] px-3 py-2 text-sm font-bold shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 sm:px-4">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#15151a]" />
+              <span className="hidden sm:inline">{libraryName}</span>
+              <span className="rounded-full bg-white px-2 py-0.5 text-xs">{librarySongs.length} 首</span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </nav>
 
