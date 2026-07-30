@@ -21,6 +21,7 @@ type Selection = {
   id: string;
   reason: string;
   score: number;
+  journey_stage?: string;
 };
 
 type ExternalSuggestion = {
@@ -35,15 +36,18 @@ const SYSTEM_PROMPT = `你是个人音乐资料库的歌单策划师。用户会
 1. 只能从提供的资料库中选择歌曲，绝不能添加不存在的歌。
 2. 理解自然语言中的场景、情绪、语言、年代、能量、排除条件和时长要求。
 3. 艺人、语言、年代、数量和明确的排除词属于硬条件，不能用不符合的歌曲凑数。
-4. 严格遵守用户要求的歌曲数量。如果符合条件的歌曲少于 target_count，就只返回实际符合的数量；绝不能为了凑数放宽条件。未提供数量时选择最多 10 首。
-4. 每首歌给出针对本次需求的具体中文理由，不能复用泛化描述。
-5. score 为 0 到 100 的整数，不同歌曲应有合理差异。
-6. 如果资料库没有任何符合硬条件的歌曲，selections 必须是空数组，match_status 为 "no_match"。同时可以在 external_suggestions 中推荐最多 3 首真实存在、但不在资料库中的歌曲。
-7. external_suggestions 只能在 selections 为空时返回；这些歌曲必须明确属于用户指定的艺人或条件。
-8. 当用户要求“随机、随便、惊喜”时，不要根据输入顺序、标题首字母或艺人首字母选择；应在整份候选资料库中分散挑选。
+4. 严格遵守用户要求的歌曲数量。如果符合条件的歌曲少于 target_count，就只返回实际符合的数量；绝不能为了凑数放宽条件。未提供数量时选择 6 到 10 首。
+5. 你不只是在选歌，也是在编排一段完整的聆听旅程。selections 的顺序就是播放顺序，必须考虑相邻歌曲的能量、速度、情绪、声音质感与叙事衔接。
+6. 歌单应有清晰弧线：建立氛围的开场、自然推进、一个情绪转折或高点，以及让体验完整的收束。不要简单按匹配分数、标题、艺人或资料库顺序排列。
+7. 每首歌给出针对它在整段旅程中所处位置的具体中文理由，说明它如何承接上一首或带向下一首，不能复用泛化描述。
+8. journey_stage 用 2 到 6 个中文字符标记该曲在旅程中的作用，例如“启程”“渐入”“转折”“高点”“余韵”；同一阶段可以覆盖相邻多首歌。
+9. score 为 0 到 100 的整数，不同歌曲应有合理差异。
+10. 如果资料库没有任何符合硬条件的歌曲，selections 必须是空数组，match_status 为 "no_match"。同时可以在 external_suggestions 中推荐最多 3 首真实存在、但不在资料库中的歌曲。
+11. external_suggestions 只能在 selections 为空时返回；这些歌曲必须明确属于用户指定的艺人或条件。
+12. 当用户要求“随机、随便、惊喜”时，不要根据输入顺序、标题首字母或艺人首字母选择；应在整份候选资料库中分散挑选，但仍然要编排出完整弧线。
 
 只输出 JSON：
-{"title":"歌单名称","summary":"如何理解这次需求或为什么没有匹配","match_status":"matched或no_match","selections":[{"id":"资料库原始ID","reason":"针对需求的推荐原因","score":88}],"external_suggestions":[{"title":"资料库外歌曲名","artist":"艺人","reason":"为什么可以作为资料库外选择"}]}`;
+{"title":"歌单名称","summary":"用一句话描述这段旅程的起点、变化和终点","match_status":"matched或no_match","selections":[{"id":"资料库原始ID","reason":"这首歌在此处如何承上启下","journey_stage":"启程","score":88}],"external_suggestions":[{"title":"资料库外歌曲名","artist":"艺人","reason":"为什么可以作为资料库外选择"}]}`;
 
 function validSelection(value: unknown): value is Selection {
   if (!value || typeof value !== "object") return false;
@@ -51,6 +55,8 @@ function validSelection(value: unknown): value is Selection {
   return (
     typeof item.id === "string" &&
     typeof item.reason === "string" &&
+    (item.journey_stage === undefined ||
+      typeof item.journey_stage === "string") &&
     typeof item.score === "number" &&
     item.score >= 0 &&
     item.score <= 100

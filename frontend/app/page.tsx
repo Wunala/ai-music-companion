@@ -4,23 +4,17 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  Check,
   ChevronDown,
-  Clock3,
   Copy,
   Disc3,
-  Download,
   ExternalLink,
   FileMusic,
   Headphones,
   Library,
-  ListMusic,
   LoaderCircle,
   Music2,
-  Plus,
   Search,
   Smartphone,
-  SlidersHorizontal,
   Sparkles,
   Upload,
   X,
@@ -42,7 +36,7 @@ type Song = {
   playCount?: number;
 };
 
-type Result = Song & { reason: string; score: number };
+type Result = Song & { reason: string; score: number; journey_stage?: string };
 
 const demoLibrary: Song[] = [
   { id: "1", title: "Happy Ending", artist: "Epik High", album: "SHOEBOX", genre: "K-Hip-Hop", year: 2014, duration: 238, tags: ["释然", "叙事", "夜晚", "情绪递进", "韩语"], energy: 48, lastPlayed: "2025-02" },
@@ -167,7 +161,6 @@ export default function Home() {
   const [results, setResults] = useState<Result[]>([]);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisMessage, setAnalysisMessage] = useState("");
@@ -187,6 +180,7 @@ export default function Home() {
     defaultPromptSuggestions,
   );
   const fileInput = useRef<HTMLInputElement>(null);
+  const resultSection = useRef<HTMLElement>(null);
 
   const visibleResults = useMemo(() => results.filter((song) => !excluded.has(song.id)), [results, excluded]);
   const totalMinutes = Math.round(visibleResults.reduce((sum, song) => sum + song.duration, 0) / 60);
@@ -339,10 +333,21 @@ export default function Home() {
     }
   }
 
-  async function generate() {
-    if (!query.trim()) return;
+  useEffect(() => {
+    if (hasGenerated && !loading) {
+      resultSection.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [hasGenerated, loading]);
+
+  async function generate(requestOverride?: string) {
+    const activeQuery =
+      typeof requestOverride === "string" ? requestOverride.trim() : query.trim();
+    if (!activeQuery) return;
+    setQuery(activeQuery);
     setLoading(true);
-    setSaved(false);
     setGenerationError("");
     setExternalSuggestions([]);
     try {
@@ -350,7 +355,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query,
+          query: activeQuery,
           songs: librarySongs.map(
             ({ id, title, artist, album, genre, year, energy, tags, language, aiSummary, lastPlayed }) => ({
               id, title, artist, album, genre, year, energy, tags, language, aiSummary, lastPlayed,
@@ -361,7 +366,7 @@ export default function Home() {
       const data = (await response.json()) as {
         title?: string;
         summary?: string;
-        selections?: Array<{ id: string; reason: string; score: number }>;
+        selections?: Array<{ id: string; reason: string; score: number; journey_stage?: string }>;
         external_suggestions?: Array<{ title: string; artist: string; reason: string }>;
         error?: string;
       };
@@ -463,59 +468,6 @@ export default function Home() {
     }
   }
 
-  function exportPlaylist() {
-    const escape = (value: string | number | undefined) =>
-      `"${String(value ?? "").replaceAll('"', '""')}"`;
-    const content = [
-      "Title,Artist,Album,Genre,Year,Language,Energy,AI Tags,AI Summary",
-      ...visibleResults.map((song) =>
-        [
-          song.title,
-          song.artist,
-          song.album,
-          song.genre,
-          song.year,
-          song.language,
-          song.energy,
-          song.tags.join("|"),
-          song.aiSummary,
-        ]
-          .map(escape)
-          .join(","),
-      ),
-    ].join("\n");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
-    link.download = "AI-Music-Companion-Playlist.csv";
-    link.click();
-    URL.revokeObjectURL(link.href);
-  }
-
-  function savePlaylist() {
-    const savedPlaylists = JSON.parse(
-      window.localStorage.getItem("music-companion-playlists") ?? "[]",
-    ) as unknown[];
-    savedPlaylists.unshift({
-      id: crypto.randomUUID(),
-      title: playlistTitle || query,
-      query,
-      summary: playlistSummary,
-      createdAt: new Date().toISOString(),
-      songs: visibleResults.map(({ id, title, artist, album, reason }) => ({
-        id,
-        title,
-        artist,
-        album,
-        reason,
-      })),
-    });
-    window.localStorage.setItem(
-      "music-companion-playlists",
-      JSON.stringify(savedPlaylists.slice(0, 50)),
-    );
-    setSaved(true);
-  }
-
   function createAppleMusicPlaylist() {
     if (visibleResults.length === 0) return;
     const payload = {
@@ -567,13 +519,13 @@ export default function Home() {
         <div className="pointer-events-none absolute -right-24 top-10 h-52 w-52 rounded-full bg-[#e9e7ff] blur-3xl" />
         <div className="relative grid items-end gap-8 lg:grid-cols-[1fr_0.48fr]">
           <div>
-            <div className="mb-5 flex w-fit rotate-[-2deg] items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#ffb4bb] px-3 py-1.5 text-xs font-black shadow-[2px_2px_0_#15151a]"><Disc3 className="h-4 w-4" />只在你的收藏里找</div>
+            <div className="mb-5 flex w-fit rotate-[-2deg] items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#ffb4bb] px-3 py-1.5 text-xs font-black shadow-[2px_2px_0_#15151a]"><Disc3 className="h-4 w-4" />AI 编排你的收藏</div>
             <h1 className="max-w-4xl text-5xl font-black leading-[0.98] tracking-[-0.055em] md:text-7xl lg:text-[82px]">
-              今天想听什么？<br /><span className="text-[#635bff]">从你的音乐里找。</span>
+              不只选对歌。<br /><span className="text-[#635bff]">还要讲完一个故事。</span>
             </h1>
           </div>
           <p className="max-w-sm text-base font-medium leading-7 text-[#656570]">
-            不用翻歌单。说出此刻的状态，马上得到只属于你资料库的播放队列。
+            从开场、推进到转折与余韵，AI 把你的收藏编排成一段完整的聆听旅程。
           </p>
         </div>
 
@@ -584,40 +536,53 @@ export default function Home() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter") generate(); }}
-              placeholder="比如：晚上开车，来三首有力量但不要太吵的歌"
+              placeholder="比如：从下班后的疲惫开始，慢慢找回力量，最后安静地回到家"
               className="min-h-20 w-full resize-none bg-transparent text-lg font-semibold leading-8 outline-none placeholder:font-medium placeholder:text-[#aaaab5]"
             />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-[#15151a]/10 px-3 pt-3">
-            <div className="flex flex-wrap gap-2">
-              {promptSuggestions.map((suggestion) => (
-                <button key={suggestion.label} onClick={() => setQuery(suggestion.query)} className="rounded-full bg-[#f0efff] px-3 py-2 text-xs font-bold text-[#5149d8] transition hover:bg-[#e3e0ff]">{suggestion.label}</button>
-              ))}
-            </div>
-            <button onClick={generate} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#635bff] px-5 text-sm font-black text-white shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 disabled:opacity-40">
+          <div className="flex items-center justify-end border-t-2 border-[#15151a]/10 px-3 pt-3">
+            <button onClick={() => generate()} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#635bff] px-5 text-sm font-black text-white shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 disabled:opacity-40">
               {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {loading ? "正在找歌…" : "开始找歌"}
+              {loading ? "正在编排…" : "编排一段旅程"}
             </button>
           </div>
         </div>
 
-        {results.length === 0 && !loading && (
-          <div className="mt-14 grid gap-4 md:grid-cols-3">
-            {[
-              [SlidersHorizontal, "自然语言筛选", "不用记住复杂分类，说出你真正想听的感觉。"],
-              [Clock3, "重新发现旧收藏", "找回很久没听，却曾经陪伴过你的歌曲。"],
-              [ListMusic, "整理成可用歌单", "移除不合适的歌，再保存或导出最终结果。"],
-            ].map(([Icon, title, body]) => {
-              const CardIcon = Icon as typeof SlidersHorizontal;
-              const colors = ["bg-[#c8ff4d]", "bg-[#e9e7ff]", "bg-[#ffb4bb]"];
-              const cardIndex = title === "自然语言筛选" ? 0 : title === "重新发现旧收藏" ? 1 : 2;
-              return <div key={title as string} className={`rounded-2xl border-2 border-[#15151a] p-5 shadow-[3px_3px_0_#15151a] ${colors[cardIndex]}`}><span className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#15151a] bg-white"><CardIcon className="h-5 w-5" /></span><h2 className="mt-6 font-black">{title as string}</h2><p className="mt-2 text-sm font-medium leading-6 text-[#53535c]">{body as string}</p></div>;
-            })}
-          </div>
+        {!loading && (
+          <section className="mt-14">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-black text-[#635bff]">CURATED AS A JOURNEY</p>
+                <h2 className="mt-2 text-2xl font-black tracking-[-0.035em]">AI 为你编排的聆听旅程</h2>
+              </div>
+              <p className="hidden text-xs font-bold text-[#858590] sm:block">每一首都为上一首而来</p>
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {promptSuggestions.map((suggestion, index) => (
+                <button
+                  key={suggestion.label}
+                  onClick={() => generate(suggestion.query)}
+                  className="group flex min-h-44 flex-col items-start justify-between rounded-[22px] border-2 border-[#15151a] p-5 text-left shadow-[3px_3px_0_#15151a] transition hover:-translate-y-1"
+                  style={{ backgroundColor: queueColors[index % queueColors.length] }}
+                >
+                  <div className="flex w-full items-start justify-between gap-3">
+                    <span className="text-2xl">{suggestion.label.split(" ")[0]}</span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#15151a] bg-white transition group-hover:bg-[#15151a] group-hover:text-white">
+                      <ArrowRight className="h-4 w-4" />
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black">{suggestion.label.replace(/^\S+\s*/, "")}</h3>
+                    <p className="mt-2 text-xs font-medium leading-5 text-[#53535c]">{suggestion.query}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
 
         {hasGenerated && !loading && (
-          <section className="mt-16">
+          <section ref={resultSection} className="scroll-mt-8 mt-16">
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div>
                 <p className="flex items-center gap-2 text-xs font-black text-[#635bff]">
@@ -631,8 +596,6 @@ export default function Home() {
                 <p className="mt-2 text-sm font-bold text-[#858590]">{visibleResults.length} 首 · 约 {totalMinutes} 分钟 · 来自你的资料库</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={exportPlaylist} className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-white px-4 py-2.5 text-sm font-bold"><Download className="h-4 w-4" />CSV</button>
-                <button onClick={savePlaylist} className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#c8ff4d] px-4 py-2.5 text-sm font-bold">{saved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{saved ? "已保存" : "保存"}</button>
                 <button
                   onClick={createAppleMusicPlaylist}
                   disabled={visibleResults.length === 0}
@@ -660,7 +623,13 @@ export default function Home() {
                 <article key={song.id} className="group grid grid-cols-[46px_1fr_auto] items-center gap-4 border-b-2 border-[#15151a]/10 p-4 last:border-0 md:grid-cols-[46px_1fr_1.2fr_auto] md:px-6">
                   <div style={{ backgroundColor: queueColors[index % queueColors.length] }} className="flex h-11 w-11 rotate-[-3deg] items-center justify-center rounded-xl border-2 border-[#15151a] text-sm font-black shadow-[2px_2px_0_#15151a]">{String(index + 1).padStart(2, "0")}</div>
                   <div><h3 className="font-black">{song.title}</h3><p className="mt-1 text-sm font-medium text-[#767680]">{song.artist} · {song.album}</p></div>
-                  <div className="hidden md:block"><p className="rounded-xl bg-[#f1f0ff] px-3 py-2 text-sm font-medium text-[#4f4b75]">{song.reason}</p><div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f1f1f5] px-2 py-1 text-[10px] font-bold text-[#72727c]">{tag}</span>)}</div></div>
+                  <div className="hidden md:block">
+                    <div className="flex items-start gap-2">
+                      {song.journey_stage && <span className="shrink-0 rounded-full bg-[#c8ff4d] px-2.5 py-1 text-[10px] font-black text-[#15151a]">{song.journey_stage}</span>}
+                      <p className="rounded-xl bg-[#f1f0ff] px-3 py-2 text-sm font-medium text-[#4f4b75]">{song.reason}</p>
+                    </div>
+                    <div className="mt-2 flex gap-2">{song.tags.slice(0, 3).map((tag) => <span key={tag} className="rounded-full bg-[#f1f1f5] px-2 py-1 text-[10px] font-bold text-[#72727c]">{tag}</span>)}</div>
+                  </div>
                   <div className="flex items-center gap-1">
                     <a
                       href={`https://music.apple.com/search?term=${encodeURIComponent(`${song.title} ${song.artist}`)}`}
