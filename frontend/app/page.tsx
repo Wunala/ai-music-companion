@@ -64,10 +64,10 @@ const queueShortcutUrl =
   process.env.NEXT_PUBLIC_QUEUE_SHORTCUT_URL ??
   "https://www.icloud.com/shortcuts/ff3fd03e1f0f4ecc8e0290bd801bb836";
 const defaultPromptSuggestions = [
-  { label: "🌙 深夜开车", query: "深夜开车时适合听的歌" },
-  { label: "💿 最近没听过", query: "推荐几首很久没播放的收藏" },
-  { label: "🎲 随机来几首", query: "从我的资料库随机推荐5首歌" },
-  { label: "🫧 轻松一点", query: "推荐几首轻松、不吵的歌" },
+  { label: "🌙 深夜回程", query: "从夜晚独处的安静开始，慢慢加入一点向前的力量，最后轻轻落下来" },
+  { label: "💿 找回旧收藏", query: "从很久没有播放的收藏开始，逐渐带回熟悉感，最后用一首最有余韵的歌收束" },
+  { label: "🎲 意外的旅程", query: "从资料库里大胆选择一些意外组合，但让听感自然推进并形成完整的起伏" },
+  { label: "🫧 慢慢松下来", query: "从尚未散去的紧绷开始，逐渐变得轻松柔和，最后进入完全放松的状态" },
 ];
 const queueColors = ["#C8FF4D", "#E9E7FF", "#FFB4BB", "#B9E6FF"];
 
@@ -219,7 +219,7 @@ export default function Home() {
     if (librarySongs.length === 0) return;
     const first = librarySongs[0];
     const last = librarySongs[librarySongs.length - 1];
-    const cacheKey = `music-companion-prompt-suggestions:${librarySongs.length}:${first?.title}:${last?.title}`;
+    const cacheKey = `music-companion-prompt-suggestions:v2:${librarySongs.length}:${first?.title}:${last?.title}`;
     const cached = window.localStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -357,8 +357,8 @@ export default function Home() {
         body: JSON.stringify({
           query: activeQuery,
           songs: librarySongs.map(
-            ({ id, title, artist, album, genre, year, energy, tags, language, aiSummary, lastPlayed }) => ({
-              id, title, artist, album, genre, year, energy, tags, language, aiSummary, lastPlayed,
+            ({ id, title, artist, album, genre, year, duration, energy, tags, language, aiSummary, lastPlayed }) => ({
+              id, title, artist, album, genre, year, duration, energy, tags, language, aiSummary, lastPlayed,
             }),
           ),
         }),
@@ -519,13 +519,13 @@ export default function Home() {
         <div className="pointer-events-none absolute -right-24 top-10 h-52 w-52 rounded-full bg-[#e9e7ff] blur-3xl" />
         <div className="relative grid items-end gap-8 lg:grid-cols-[1fr_0.48fr]">
           <div>
-            <div className="mb-5 flex w-fit rotate-[-2deg] items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#ffb4bb] px-3 py-1.5 text-xs font-black shadow-[2px_2px_0_#15151a]"><Disc3 className="h-4 w-4" />AI 编排你的收藏</div>
+            <div className="mb-5 flex w-fit rotate-[-2deg] items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#ffb4bb] px-3 py-1.5 text-xs font-black shadow-[2px_2px_0_#15151a]"><Disc3 className="h-4 w-4" />只在你的收藏里找</div>
             <h1 className="max-w-4xl text-5xl font-black leading-[0.98] tracking-[-0.055em] md:text-7xl lg:text-[82px]">
-              不只选对歌。<br /><span className="text-[#635bff]">还要讲完一个故事。</span>
+              今天想听什么？<br /><span className="text-[#635bff]">从你的音乐里找。</span>
             </h1>
           </div>
           <p className="max-w-sm text-base font-medium leading-7 text-[#656570]">
-            从开场、推进到转折与余韵，AI 把你的收藏编排成一段完整的聆听旅程。
+            不用翻歌单。说出此刻的状态，马上得到只属于你资料库的播放队列。
           </p>
         </div>
 
@@ -543,7 +543,7 @@ export default function Home() {
           <div className="flex items-center justify-end border-t-2 border-[#15151a]/10 px-3 pt-3">
             <button onClick={() => generate()} disabled={!query.trim() || loading} className="flex h-11 items-center gap-2 rounded-full border-2 border-[#15151a] bg-[#635bff] px-5 text-sm font-black text-white shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 disabled:opacity-40">
               {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {loading ? "正在编排…" : "编排一段旅程"}
+              {loading ? "正在找歌…" : "开始找歌"}
             </button>
           </div>
         </div>
