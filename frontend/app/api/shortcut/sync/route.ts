@@ -35,6 +35,60 @@ function number(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function durationInSeconds(value: unknown): number {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value < 0) return 0;
+    // Apple Music exports commonly use milliseconds; Shortcuts commonly uses seconds.
+    return value > 86400 ? value / 1000 : value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return 0;
+
+    if (/^\d+(?:\.\d+)?$/.test(normalized)) {
+      return durationInSeconds(Number(normalized));
+    }
+
+    if (/^\d{1,2}:\d{1,2}(?::\d{1,2})?$/.test(normalized)) {
+      return normalized
+        .split(":")
+        .map(Number)
+        .reduce((total, part) => total * 60 + part, 0);
+    }
+
+    const hours =
+      Number(normalized.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|小时)/)?.[1]) ||
+      0;
+    const minutes =
+      Number(
+        normalized.match(/(\d+(?:\.\d+)?)\s*(?:minutes?|mins?|分钟|分)/)?.[1],
+      ) || 0;
+    const seconds =
+      Number(
+        normalized.match(/(\d+(?:\.\d+)?)\s*(?:seconds?|secs?|秒)/)?.[1],
+      ) || 0;
+    if (hours || minutes || seconds) {
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+    return 0;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const rawValue = number(record.value ?? record.magnitude ?? record.amount);
+    const unit = text(record.unit ?? record.units).toLowerCase();
+    if (rawValue) {
+      if (unit.includes("hour") || unit.includes("小时")) return rawValue * 3600;
+      if (unit.includes("minute") || unit.includes("分钟")) return rawValue * 60;
+      if (unit.includes("milli")) return rawValue / 1000;
+      return rawValue;
+    }
+  }
+
+  return 0;
+}
+
 export async function POST(request: NextRequest) {
   let body: {
     pairing_code?: unknown;
@@ -79,7 +133,7 @@ export async function POST(request: NextRequest) {
       album: text(song.album, "Unknown Album"),
       genre: text(song.genre, "Unknown"),
       year: 0,
-      duration: Math.round(number(song.duration)),
+      duration: Math.round(durationInSeconds(song.duration)),
       playCount: Math.round(number(song.play_count)),
       lastPlayed: text(song.last_played_at).slice(0, 10) || undefined,
       tags: [text(song.genre, "Unknown")],
