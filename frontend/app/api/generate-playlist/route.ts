@@ -40,6 +40,7 @@ const SYSTEM_PROMPT = `你是个人音乐资料库的歌单策划师。用户会
 5. score 为 0 到 100 的整数，不同歌曲应有合理差异。
 6. 如果资料库没有任何符合硬条件的歌曲，selections 必须是空数组，match_status 为 "no_match"。同时可以在 external_suggestions 中推荐最多 3 首真实存在、但不在资料库中的歌曲。
 7. external_suggestions 只能在 selections 为空时返回；这些歌曲必须明确属于用户指定的艺人或条件。
+8. 当用户要求“随机、随便、惊喜”时，不要根据输入顺序、标题首字母或艺人首字母选择；应在整份候选资料库中分散挑选。
 
 只输出 JSON：
 {"title":"歌单名称","summary":"如何理解这次需求或为什么没有匹配","match_status":"matched或no_match","selections":[{"id":"资料库原始ID","reason":"针对需求的推荐原因","score":88}],"external_suggestions":[{"title":"资料库外歌曲名","artist":"艺人","reason":"为什么可以作为资料库外选择"}]}`;
@@ -95,6 +96,38 @@ function extractRequestedCount(query: string): number | null {
   return chineseMatch ? chineseNumbers[chineseMatch[1]] : null;
 }
 
+function shuffled<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
+
+function selectCandidates(query: string, library: LibrarySong[]): LibrarySong[] {
+  const normalizedQuery = query.toLocaleLowerCase();
+  const randomIntent = /随机|随便|惊喜|盲选|shuffle|random/.test(
+    normalizedQuery,
+  );
+
+  if (randomIntent) return shuffled(library).slice(0, 500);
+
+  // Keep explicitly named songs or artists, then fill the remaining context
+  // with a uniform sample from the entire library instead of its A–Z prefix.
+  const explicitMatches = library.filter((song) => {
+    const title = song.title.trim().toLocaleLowerCase();
+    const artist = song.artist.trim().toLocaleLowerCase();
+    return (
+      (title.length >= 2 && normalizedQuery.includes(title)) ||
+      (artist.length >= 2 && normalizedQuery.includes(artist))
+    );
+  });
+  const matchedIds = new Set(explicitMatches.map((song) => song.id));
+  const remaining = library.filter((song) => !matchedIds.has(song.id));
+  return [...shuffled(explicitMatches), ...shuffled(remaining)].slice(0, 500);
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
@@ -109,10 +142,11 @@ export async function POST(request: NextRequest) {
     songs?: LibrarySong[];
   };
   const query = body.query?.trim();
-  const songs = body.songs?.slice(0, 500) ?? [];
-  if (!query || songs.length === 0) {
+  const library = body.songs?.slice(0, 10000) ?? [];
+  if (!query || library.length === 0) {
     return NextResponse.json({ error: "缺少听歌需求或资料库" }, { status: 400 });
   }
+  const songs = selectCandidates(query, library);
   const targetCount = extractRequestedCount(query);
 
   const response = await fetch("https://api.deepseek.com/chat/completions", {
