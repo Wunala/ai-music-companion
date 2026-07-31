@@ -26,6 +26,7 @@ const SYSTEM_PROMPT = `你是擅长叙事编排的个人音乐策划师。根据
 4. label 必须包含一个 emoji，随后是 4 到 9 个中文字符，像一段旅程的标题。
 5. query 是点击后真正发送给音乐 AI 的完整自然语言需求，必须具体描述首尾与推进方式，但不要指定歌曲数量，让歌单 AI 自行决定完成旅程所需的长度。
 6. 不要重复同一种意图，也不要使用“猜你喜欢”之类空泛表达。
+7. 如果输入中包含 previous_suggestions，新生成的四项必须与这些旧主题明显不同，不能只是更换标题或近义词。
 
 只输出 JSON：
 {"suggestions":[{"label":"💿 找回旧收藏","query":"从很久没有播放的收藏开始，逐渐带回熟悉感，最后用一首最有余韵的歌收束"},{"label":"...","query":"..."}]}`;
@@ -52,7 +53,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json()) as { songs?: InputSong[] };
+  const body = (await request.json()) as {
+    songs?: InputSong[];
+    previous_suggestions?: PromptSuggestion[];
+  };
   const songs = (body.songs ?? [])
     .slice(0, 180)
     .filter(
@@ -79,7 +83,10 @@ export async function POST(request: NextRequest) {
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: JSON.stringify({ library_sample: songs }),
+          content: JSON.stringify({
+            library_sample: songs,
+            previous_suggestions: (body.previous_suggestions ?? []).slice(0, 4),
+          }),
         },
       ],
     }),

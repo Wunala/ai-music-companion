@@ -13,6 +13,7 @@ import {
   Library,
   LoaderCircle,
   Music2,
+  RefreshCw,
   Search,
   Smartphone,
   Sparkles,
@@ -179,6 +180,8 @@ export default function Home() {
   const [promptSuggestions, setPromptSuggestions] = useState(
     defaultPromptSuggestions,
   );
+  const [suggestionRefreshNonce, setSuggestionRefreshNonce] = useState(0);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const resultSection = useRef<HTMLElement>(null);
 
@@ -219,13 +222,18 @@ export default function Home() {
     if (librarySongs.length === 0) return;
     const first = librarySongs[0];
     const last = librarySongs[librarySongs.length - 1];
-    const cacheKey = `music-companion-prompt-suggestions:v2:${librarySongs.length}:${first?.title}:${last?.title}`;
-    const cached = window.localStorage.getItem(cacheKey);
+    const now = new Date();
+    const dayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const cacheKey = `music-companion-prompt-suggestions:v3:${dayKey}:${librarySongs.length}:${first?.title}:${last?.title}`;
+    const cached = suggestionRefreshNonce === 0
+      ? window.localStorage.getItem(cacheKey)
+      : null;
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as typeof defaultPromptSuggestions;
         if (Array.isArray(parsed) && parsed.length === 4) {
           setPromptSuggestions(parsed);
+          setSuggestionsLoading(false);
           return;
         }
       } catch {
@@ -244,10 +252,14 @@ export default function Home() {
       return { title, artist, album, genre, year, lastPlayed };
     });
 
+    setSuggestionsLoading(true);
     fetch("/api/suggest-prompts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ songs: sampledSongs }),
+      body: JSON.stringify({
+        songs: sampledSongs,
+        previous_suggestions: suggestionRefreshNonce > 0 ? promptSuggestions : [],
+      }),
     })
       .then(async (response) => {
         if (!response.ok) return null;
@@ -264,8 +276,12 @@ export default function Home() {
           );
         }
       })
-      .catch(() => undefined);
-  }, [librarySongs]);
+      .catch(() => undefined)
+      .finally(() => setSuggestionsLoading(false));
+  // promptSuggestions is intentionally excluded: it is context for a manual
+  // refresh, not a reason to continuously regenerate suggestions.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [librarySongs, suggestionRefreshNonce]);
 
   useEffect(() => {
     if (!pairingToken || !showImport) return;
@@ -555,7 +571,15 @@ export default function Home() {
                 <p className="text-xs font-black text-[#635bff]">CURATED AS A JOURNEY</p>
                 <h2 className="mt-2 text-2xl font-black tracking-[-0.035em]">AI 为你编排的聆听旅程</h2>
               </div>
-              <p className="hidden text-xs font-bold text-[#858590] sm:block">每一首都为上一首而来</p>
+              <button
+                type="button"
+                onClick={() => setSuggestionRefreshNonce((value) => value + 1)}
+                disabled={suggestionsLoading}
+                className="flex items-center gap-2 rounded-full border-2 border-[#15151a] bg-white px-3 py-2 text-xs font-black shadow-[2px_2px_0_#15151a] transition hover:-translate-y-0.5 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${suggestionsLoading ? "animate-spin" : ""}`} />
+                {suggestionsLoading ? "正在换一批" : "换一批"}
+              </button>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {promptSuggestions.map((suggestion, index) => (
