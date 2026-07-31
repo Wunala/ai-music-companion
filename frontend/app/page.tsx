@@ -564,7 +564,7 @@ export default function Home() {
           </div>
         </div>
 
-        {!loading && (
+        {!loading && !hasGenerated && (
           <section className="mt-14">
             <div className="flex items-end justify-between gap-4">
               <div>
